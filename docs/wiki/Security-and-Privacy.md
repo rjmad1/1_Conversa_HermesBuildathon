@@ -1,16 +1,31 @@
 # Security and Privacy
 
-This page covers multi-tenancy boundaries and logging confidentiality details.
+> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+
+This page covers security policies, tenant isolation, and logging confidentiality.
+
+---
 
 ## 1. Multi-Tenancy Scoping (BOLA Mitigation)
-Repository queries enforce multi-tenancy boundaries:
-* All reads and updates check matching `tenantId` and `workspaceId` parameters.
-* Unauthorized cross-tenant queries return `null` or throw non-disclosing `MEETING_NOT_FOUND` / `NOT_FOUND` 404 errors.
+Conversa enforces multi-tenancy boundaries at the repository layer.
+* All queries check `tenantId` and `workspaceId` parameters.
+* Requesting an item belonging to another tenant returns `null` or throws a non-disclosing `NOT_FOUND` error.
+* Session context variables are populated via middleware parsing incoming request headers (`x-tenant-id`, `x-workspace-id`).
 
-## 2. Recursive Redaction
-Logs are recursively sanitized before write:
-* Detects sensitive keys (e.g., API keys, raw transcripts, storage references) and replaces them with `[REDACTED]`.
-* Detects circular references and logs `[CIRCULAR]`.
-* Cuts off nested logging at depth 10 with `[MAX_DEPTH_REACHED]`.
+> [!WARNING]
+> Caller-supplied development headers are not production credentials. They are spoofable.
 
-For details, see [SECURITY_AND_PRIVACY](file:///c:/Users/rajaj/Projects/1_Conversa/docs/SECURITY_AND_PRIVACY.md).
+---
+
+## 2. Recursive Log Redaction
+The application implements console log scrubbing:
+* Log objects undergo deep recursive scrubbing up to 10 nesting levels.
+* Keys matching `key`, `token`, `secret`, `authorization`, `password`, or `audio` are replaced with `[REDACTED]`.
+* Circular references are handled by emitting `[CIRCULAR]`.
+
+---
+
+## 3. Disclosures & Remediation Audit
+* **Security Audit Status**: All security regression tests pass. Tenant isolation boundaries are closed and verified.
+* **Authentication**: Production authentication is not implemented.
+* **Vulnerability Reports**: Please report vulnerabilities privately. Refer to `SECURITY.md` in the repository root.

@@ -1,5 +1,7 @@
 # Testing and Quality
 
+> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+
 This page describes the testing suites, quality gates, and benchmarks.
 
 ## 1. Quality Pipelines Status
@@ -7,15 +9,17 @@ This page describes the testing suites, quality gates, and benchmarks.
 All verification checks run successfully:
 * **TypeScript type checking**: PASS
 * **ESlint check**: PASS
-* **Unit Tests**: 100% PASS (17 tests)
-* **Integration Tests**: 100% PASS (29 tests)
-* **E2E API Tests**: 100% PASS (10 tests)
+* **Unit Tests**: PASS
+* **Integration Tests**: PASS
+* **E2E API Tests**: PASS
 * **Vite build**: PASS
-* **Adversarial boundary check**: 100% PASS
+* **Adversarial boundary check**: PASS
+* **Smoke test**: PASS
 
 ## 2. Test Commands Reference
 * Unit tests: `npm run test`
 * Integration tests: `npm run test:integration`
 * E2E tests: `npm run test:e2e`
-
-For details on test architecture, see [TESTING_GUIDE](file:///c:/Users/rajaj/Projects/1_Conversa/docs/TESTING_GUIDE.md).
+* Run all tests via Vitest: `npx vitest run --reporter=verbose`
+* Run adversarial runner: `npx vitest run tests/integration/adversarial.spec.ts`
+* Run smoke test: `npx vitest run tests/e2e/smoke.spec.ts` (or similar)
