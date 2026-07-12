@@ -1,0 +1,2 @@
+We decided to launch the beta. The launch checklist needs to be completed. We also decided to defer the billing integration.
+The integration RFC must be drafted soon, but we haven't assigned it.
