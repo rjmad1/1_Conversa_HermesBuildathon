@@ -33,7 +33,7 @@ export class UploadMeetingAudio {
 
     if (input.file.bytes.length === 0) throw new AppError(ErrorCode.VALIDATION_ERROR, "Empty file rejected", 400);
     if (input.file.bytes.length > cfg.AUDIO_MAX_BYTES)
-      throw new AppError(ErrorCode.VALIDATION_ERROR, "File exceeds maximum size", 400, { received: input.file.bytes.length, allowed: cfg.AUDIO_MAX_BYTES });
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "File exceeds maximum size", 413, { received: input.file.bytes.length, allowed: cfg.AUDIO_MAX_BYTES });
     if (!isExtensionMimeConsistent(input.file.fileName, mime))
       throw new AppError(ErrorCode.VALIDATION_ERROR, "File extension and MIME type mismatch", 400, { received: input.file.fileName, allowed: mime });
     const duration = input.file.durationSeconds ?? 0;

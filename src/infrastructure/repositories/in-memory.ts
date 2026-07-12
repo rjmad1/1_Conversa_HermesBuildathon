@@ -220,4 +220,90 @@ export function buildInMemoryRepos(): Repos {
   };
 }
 
+export function resetWorkspaceData(repos: Repos, tenantId: string, workspaceId: string): void {
+  const meetingRepo = repos.meeting as InMemoryMeetingRepo;
+  const audioRepo = repos.audio as InMemoryAudioAssetRepo;
+  const transcriptRepo = repos.transcript as InMemoryTranscriptRepo;
+  const analysisRunRepo = repos.analysisRun as InMemoryAnalysisRunRepo;
+  const meetingAnalysisRepo = repos.meetingAnalysis as InMemoryMeetingAnalysisRepo;
+  const auditRepo = repos.audit as InMemoryAuditRepo;
+  const agencyRunRepo = repos.agencyRun as any;
+
+  // 1. Get meeting IDs to delete
+  const meetingsToDelete = [...(meetingRepo as any).meetings.values()]
+    .filter((m) => m.tenantId === tenantId && m.workspaceId === workspaceId);
+  const meetingIds = new Set(meetingsToDelete.map((m) => m.id));
+
+  // 2. Delete meetings
+  for (const id of meetingIds) {
+    (meetingRepo as any).meetings.delete(id);
+  }
+
+  // 3. Delete audio assets
+  for (const [id, a] of [...(audioRepo as any).assets.entries()]) {
+    if (a.tenantId === tenantId && a.workspaceId === workspaceId) {
+      (audioRepo as any).assets.delete(id);
+    }
+  }
+
+  // 4. Delete transcripts
+  for (const [id, t] of [...(transcriptRepo as any).items.entries()]) {
+    if (t.tenantId === tenantId && t.workspaceId === workspaceId) {
+      (transcriptRepo as any).items.delete(id);
+    }
+  }
+
+  // 5. Delete analysis runs
+  for (const [id, r] of [...(analysisRunRepo as any).runs.entries()]) {
+    if (r.tenantId === tenantId && r.workspaceId === workspaceId) {
+      (analysisRunRepo as any).runs.delete(id);
+    }
+  }
+
+  // 6. Delete analyses, decisions, actions, approvals
+  for (const [id, a] of [...(meetingAnalysisRepo as any).analyses.entries()]) {
+    if (meetingIds.has(a.meetingId)) {
+      (meetingAnalysisRepo as any).analyses.delete(id);
+    }
+  }
+  for (const [id, d] of [...(meetingAnalysisRepo as any).decisions.entries()]) {
+    if (meetingIds.has(d.meetingId)) {
+      (meetingAnalysisRepo as any).decisions.delete(id);
+    }
+  }
+  const deletedActions = new Set<string>();
+  for (const [id, a] of [...(meetingAnalysisRepo as any).actions.entries()]) {
+    if (meetingIds.has(a.meetingId)) {
+      (meetingAnalysisRepo as any).actions.delete(id);
+      deletedActions.add(id);
+    }
+  }
+  for (const [id, p] of [...(meetingAnalysisRepo as any).approvals.entries()]) {
+    if (deletedActions.has(p.actionId)) {
+      (meetingAnalysisRepo as any).approvals.delete(id);
+    }
+  }
+
+  // 7. Delete audit events
+  (auditRepo as any).events = (auditRepo as any).events.filter(
+    (e: any) => !(e.tenantId === tenantId && e.workspaceId === workspaceId)
+  );
+
+  // 8. Delete agency runs and steps
+  if (agencyRunRepo && agencyRunRepo.runs) {
+    for (const [id, run] of [...agencyRunRepo.runs.entries()]) {
+      if (run.tenantId === tenantId && run.workspaceId === workspaceId) {
+        agencyRunRepo.runs.delete(id);
+      }
+    }
+  }
+  if (agencyRunRepo && agencyRunRepo.steps) {
+    for (const [id, step] of [...agencyRunRepo.steps.entries()]) {
+      if (step.tenantId === tenantId && step.workspaceId === workspaceId) {
+        agencyRunRepo.steps.delete(id);
+      }
+    }
+  }
+}
+
 export { randomUUID };

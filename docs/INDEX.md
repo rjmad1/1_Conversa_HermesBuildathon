@@ -19,6 +19,7 @@
 12. `docs/test-plan.md` — audio-first test matrix (no mic/camera/external AI).
 13. `docs/acceptance-criteria.md` — the 10 acceptance criteria.
 14. `docs/cut-line.md` — **3-hour buildathon cut-line**: must-build / fake / defer. Start here on build day.
+15. `docs/PRODUCTION_READINESS.md` — production readiness & security controls.
 
 ## Document Catalogue
 
@@ -37,6 +38,7 @@
 | `docs/transcription-analysis.md` | AI Engineer | Where's the transcription boundary? Fake provider? |
 | `docs/test-plan.md` | QA Lead | What must tests cover? No real mic/camera/AI? |
 | `docs/acceptance-criteria.md` | QA / PM | Are we done? The 10 gates. |
+| `docs/PRODUCTION_READINESS.md` | Security Engineer | What are the authentication, authorization, CORS, and rate limit rules in production? |
 | `README.md` | Technical Writer | Human entry point; supported inputs; setup. |
 | `IDEA.md` | Principal PM | Product vision (audio-first). |
 | `Requirements/Requirements/*.md` | PM / Architecture | Original full requirements + buildathon context. |

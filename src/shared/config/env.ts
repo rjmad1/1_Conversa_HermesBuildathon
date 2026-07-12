@@ -18,6 +18,15 @@ const envSchema = z.object({
   STORAGE_BACKEND: z.enum(["memory", "r2"]).default("memory"),
   PERSISTENCE_BACKEND: z.enum(["memory", "d1"]).default("memory"),
   MEDIA_VIDEO_ENABLED: z.enum(["true", "false"]).default("false"),
+  ALLOW_DEV_IDENTITY: z.enum(["true", "false"]).default("false"),
+  PUBLIC_DEMO_MODE: z.enum(["true", "false"]).default("true"),
+  ALLOWED_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
+  PROD_AUTH_TOKENS: z.string().optional(),
+  RATE_LIMIT_TRANSCRIPTION_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_ANALYSIS_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_AGENCY_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_ADMIN_LIMIT: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;
@@ -28,7 +37,22 @@ export function buildConfig(overrides: Record<string, string | undefined> = {}):
   if (!parsed.success) {
     throw new Error("Invalid environment configuration: " + JSON.stringify(parsed.error.issues));
   }
-  return parsed.data;
+  const data = parsed.data;
+  if (data.NODE_ENV === "production" || data.AUTH_MODE === "prod") {
+    if (data.TRANSCRIPTION_PROVIDER === "fake") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Fake transcription provider is prohibited in production.");
+    }
+    if (data.ANALYSIS_PROVIDER === "fake") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Fake analysis provider is prohibited in production.");
+    }
+    if (!data.OPENAI_API_KEY) {
+      throw new Error("CRITICAL CONFIGURATION ERROR: OPENAI_API_KEY is required in production.");
+    }
+    if (data.ALLOW_DEV_IDENTITY === "true") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Development identity is prohibited in production.");
+    }
+  }
+  return data;
 }
 
 function stripUndefined(obj: Record<string, string | undefined>): Record<string, string> {

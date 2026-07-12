@@ -179,3 +179,16 @@ ul { padding-left: 18px; }
 .badge-status.running { background: rgba(79, 140, 255, 0.2); color: #4f8cff; }
 .badge-status.paused { background: rgba(240, 160, 32, 0.2); color: #f0a020; }
 .badge-status.escalated { background: rgba(240, 160, 32, 0.3); color: #ff9900; border: 1px solid #ff9900; }
+
+.prototype-banner {
+  background: rgba(240, 160, 32, 0.15);
+  border: 1px solid var(--warn);
+  border-radius: 8px;
+  color: var(--fg);
+  padding: 12px 16px;
+  margin: 20px auto 0;
+  max-width: 860px;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.5;
+}

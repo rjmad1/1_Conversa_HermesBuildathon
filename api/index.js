@@ -4,6 +4,9 @@ import { handle } from "hono/vercel";
 // src/app/index.ts
 import { Hono } from "hono";
 import { randomUUID as randomUUID10 } from "node:crypto";
+import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
 
 // src/shared/config/env.ts
 import { z } from "zod";
@@ -24,7 +27,16 @@ var envSchema = z.object({
   PROVIDER_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   STORAGE_BACKEND: z.enum(["memory", "r2"]).default("memory"),
   PERSISTENCE_BACKEND: z.enum(["memory", "d1"]).default("memory"),
-  MEDIA_VIDEO_ENABLED: z.enum(["true", "false"]).default("false")
+  MEDIA_VIDEO_ENABLED: z.enum(["true", "false"]).default("false"),
+  ALLOW_DEV_IDENTITY: z.enum(["true", "false"]).default("false"),
+  PUBLIC_DEMO_MODE: z.enum(["true", "false"]).default("true"),
+  ALLOWED_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
+  PROD_AUTH_TOKENS: z.string().optional(),
+  RATE_LIMIT_TRANSCRIPTION_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_ANALYSIS_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_AGENCY_LIMIT: z.coerce.number().int().positive().default(3),
+  RATE_LIMIT_ADMIN_LIMIT: z.coerce.number().int().positive().default(5),
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(6e4)
 });
 function buildConfig(overrides = {}) {
   const merged = { ...process.env, ...stripUndefined(overrides) };
@@ -32,7 +44,22 @@ function buildConfig(overrides = {}) {
   if (!parsed.success) {
     throw new Error("Invalid environment configuration: " + JSON.stringify(parsed.error.issues));
   }
-  return parsed.data;
+  const data = parsed.data;
+  if (data.NODE_ENV === "production" || data.AUTH_MODE === "prod") {
+    if (data.TRANSCRIPTION_PROVIDER === "fake") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Fake transcription provider is prohibited in production.");
+    }
+    if (data.ANALYSIS_PROVIDER === "fake") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Fake analysis provider is prohibited in production.");
+    }
+    if (!data.OPENAI_API_KEY) {
+      throw new Error("CRITICAL CONFIGURATION ERROR: OPENAI_API_KEY is required in production.");
+    }
+    if (data.ALLOW_DEV_IDENTITY === "true") {
+      throw new Error("CRITICAL CONFIGURATION ERROR: Development identity is prohibited in production.");
+    }
+  }
+  return data;
 }
 function stripUndefined(obj) {
   const out = {};
@@ -53,9 +80,38 @@ function getConfig() {
   return cached;
 }
 
+// src/shared/errors/AppError.ts
+var AppError = class extends Error {
+  code;
+  httpStatus;
+  details;
+  retryable;
+  constructor(code, message, httpStatus, details, retryable = false) {
+    super(message);
+    this.name = "AppError";
+    this.code = code;
+    this.httpStatus = httpStatus;
+    this.details = details;
+    this.retryable = retryable;
+  }
+};
+
 // src/shared/security/identity.ts
 var DEMO_TENANT = "demo";
 var DEMO_WORKSPACE = "demo";
+function resolveRole(actorId) {
+  const normalized = actorId.toLowerCase();
+  if (normalized.includes("admin") || normalized === "owner-user") {
+    return "admin";
+  }
+  if (normalized.includes("viewer") || normalized === "guest-user") {
+    return "viewer";
+  }
+  if (normalized.includes("approver") || normalized === "dev-user" || normalized.startsWith("user-") || normalized === "judge") {
+    return "approver";
+  }
+  return "approver";
+}
 var DevIdentityAdapter = class {
   constructor(mode = "dev") {
     this.mode = mode;
@@ -71,28 +127,66 @@ var DevIdentityAdapter = class {
     if (this.mode === "prod") {
       throw new Error("DevIdentityAdapter cannot resolve identity in production; use an authenticated adapter.");
     }
+    const actorId = headers["x-actor-id"] || "dev-user";
     return {
       tenantId: headers["x-tenant-id"] || DEMO_TENANT,
       workspaceId: headers["x-workspace-id"] || DEMO_WORKSPACE,
-      actorId: headers["x-actor-id"] || "dev-user",
-      actorType: "user"
+      actorId,
+      actorType: "user",
+      role: resolveRole(actorId)
     };
   }
 };
-
-// src/shared/errors/AppError.ts
-var AppError = class extends Error {
-  code;
-  httpStatus;
-  details;
-  retryable;
-  constructor(code, message, httpStatus, details, retryable = false) {
-    super(message);
-    this.name = "AppError";
-    this.code = code;
-    this.httpStatus = httpStatus;
-    this.details = details;
-    this.retryable = retryable;
+var ProdIdentityAdapter = class {
+  constructor(cfg) {
+    this.cfg = cfg;
+    const tokensStr = cfg.PROD_AUTH_TOKENS || "admin:admin-token,approver:approver-token,viewer:viewer-token";
+    for (const pair of tokensStr.split(",")) {
+      const idx = pair.indexOf(":");
+      if (idx > 0) {
+        const role = pair.slice(0, idx).trim().toLowerCase();
+        const token = pair.slice(idx + 1).trim();
+        if (token && (role === "admin" || role === "approver" || role === "viewer")) {
+          this.tokenMap.set(token, { actorId: `prod-${role}`, role });
+        }
+      }
+    }
+  }
+  tokenMap = /* @__PURE__ */ new Map();
+  isProduction() {
+    return true;
+  }
+  resolve(headers) {
+    const tenantId = this.cfg.DEMO_TENANT_ID;
+    const workspaceId = this.cfg.DEMO_WORKSPACE_ID;
+    const authHeader = headers["authorization"];
+    if (!authHeader) {
+      if (this.cfg.PUBLIC_DEMO_MODE === "true") {
+        return {
+          tenantId,
+          workspaceId,
+          actorId: "anonymous-guest",
+          actorType: "user",
+          role: "viewer"
+        };
+      }
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Authorization required", 401);
+    }
+    if (!authHeader.startsWith("Bearer ")) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Invalid authorization header format. Use Bearer <token>", 401);
+    }
+    const token = authHeader.substring(7).trim();
+    const resolved = this.tokenMap.get(token);
+    if (!resolved) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Invalid token credentials", 401);
+    }
+    return {
+      tenantId,
+      workspaceId,
+      actorId: resolved.actorId,
+      actorType: "user",
+      role: resolved.role
+    };
   }
 };
 
@@ -297,6 +391,74 @@ function buildInMemoryRepos() {
     audit,
     agencyRun
   };
+}
+function resetWorkspaceData(repos, tenantId, workspaceId) {
+  const meetingRepo = repos.meeting;
+  const audioRepo = repos.audio;
+  const transcriptRepo = repos.transcript;
+  const analysisRunRepo = repos.analysisRun;
+  const meetingAnalysisRepo = repos.meetingAnalysis;
+  const auditRepo = repos.audit;
+  const agencyRunRepo = repos.agencyRun;
+  const meetingsToDelete = [...meetingRepo.meetings.values()].filter((m) => m.tenantId === tenantId && m.workspaceId === workspaceId);
+  const meetingIds = new Set(meetingsToDelete.map((m) => m.id));
+  for (const id of meetingIds) {
+    meetingRepo.meetings.delete(id);
+  }
+  for (const [id, a] of [...audioRepo.assets.entries()]) {
+    if (a.tenantId === tenantId && a.workspaceId === workspaceId) {
+      audioRepo.assets.delete(id);
+    }
+  }
+  for (const [id, t] of [...transcriptRepo.items.entries()]) {
+    if (t.tenantId === tenantId && t.workspaceId === workspaceId) {
+      transcriptRepo.items.delete(id);
+    }
+  }
+  for (const [id, r] of [...analysisRunRepo.runs.entries()]) {
+    if (r.tenantId === tenantId && r.workspaceId === workspaceId) {
+      analysisRunRepo.runs.delete(id);
+    }
+  }
+  for (const [id, a] of [...meetingAnalysisRepo.analyses.entries()]) {
+    if (meetingIds.has(a.meetingId)) {
+      meetingAnalysisRepo.analyses.delete(id);
+    }
+  }
+  for (const [id, d] of [...meetingAnalysisRepo.decisions.entries()]) {
+    if (meetingIds.has(d.meetingId)) {
+      meetingAnalysisRepo.decisions.delete(id);
+    }
+  }
+  const deletedActions = /* @__PURE__ */ new Set();
+  for (const [id, a] of [...meetingAnalysisRepo.actions.entries()]) {
+    if (meetingIds.has(a.meetingId)) {
+      meetingAnalysisRepo.actions.delete(id);
+      deletedActions.add(id);
+    }
+  }
+  for (const [id, p] of [...meetingAnalysisRepo.approvals.entries()]) {
+    if (deletedActions.has(p.actionId)) {
+      meetingAnalysisRepo.approvals.delete(id);
+    }
+  }
+  auditRepo.events = auditRepo.events.filter(
+    (e) => !(e.tenantId === tenantId && e.workspaceId === workspaceId)
+  );
+  if (agencyRunRepo && agencyRunRepo.runs) {
+    for (const [id, run] of [...agencyRunRepo.runs.entries()]) {
+      if (run.tenantId === tenantId && run.workspaceId === workspaceId) {
+        agencyRunRepo.runs.delete(id);
+      }
+    }
+  }
+  if (agencyRunRepo && agencyRunRepo.steps) {
+    for (const [id, step] of [...agencyRunRepo.steps.entries()]) {
+      if (step.tenantId === tenantId && step.workspaceId === workspaceId) {
+        agencyRunRepo.steps.delete(id);
+      }
+    }
+  }
 }
 
 // src/infrastructure/storage/in-memory.ts
@@ -1208,7 +1370,7 @@ var UploadMeetingAudio = class {
     if (!fmt) throw new AppError("UNSUPPORTED_MEDIA_TYPE" /* UNSUPPORTED_MEDIA_TYPE */, "Unsupported audio format", 415);
     if (input.file.bytes.length === 0) throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Empty file rejected", 400);
     if (input.file.bytes.length > cfg.AUDIO_MAX_BYTES)
-      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "File exceeds maximum size", 400, { received: input.file.bytes.length, allowed: cfg.AUDIO_MAX_BYTES });
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "File exceeds maximum size", 413, { received: input.file.bytes.length, allowed: cfg.AUDIO_MAX_BYTES });
     if (!isExtensionMimeConsistent(input.file.fileName, mime))
       throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "File extension and MIME type mismatch", 400, { received: input.file.fileName, allowed: mime });
     const duration = input.file.durationSeconds ?? 0;
@@ -2594,7 +2756,30 @@ var RunMeetingAgency = class {
   }
 };
 
+// src/shared/security/rate-limit.ts
+var InMemoryRateLimiter = class {
+  requests = /* @__PURE__ */ new Map();
+  isAllowed(key, limit, windowMs) {
+    const now = Date.now();
+    const timestamps = this.requests.get(key) || [];
+    const active = timestamps.filter((t) => now - t < windowMs);
+    if (active.length >= limit) {
+      this.requests.set(key, active);
+      return false;
+    }
+    active.push(now);
+    this.requests.set(key, active);
+    return true;
+  }
+  clear() {
+    this.requests.clear();
+  }
+};
+
 // src/app/index.ts
+function shouldUseDevIdentity(cfg) {
+  return (cfg.NODE_ENV === "development" || cfg.NODE_ENV === "test") && cfg.ALLOW_DEV_IDENTITY === "true";
+}
 function buildApp() {
   const app2 = new Hono();
   const cfg = getConfig();
@@ -2602,7 +2787,21 @@ function buildApp() {
   const storage = new InMemoryAudioStorage(new TenantScopedRefBuilder());
   const providers = buildProviders(cfg);
   const audit = new RepoAuditPort(repos.audit);
-  const identity = new DevIdentityAdapter(cfg.AUTH_MODE);
+  const identity = shouldUseDevIdentity(cfg) ? new DevIdentityAdapter(cfg.AUTH_MODE) : new ProdIdentityAdapter(cfg);
+  if (shouldUseDevIdentity(cfg)) {
+    logger.warn({}, "WARNING: Development identity adapter is enabled. Development headers are allowed.");
+  }
+  const rateLimiter = new InMemoryRateLimiter();
+  const rateLimit = (limit, windowMs) => {
+    return async (c, next) => {
+      const ip = c.req.header("x-forwarded-for") || "unknown-ip";
+      const key = `${c.req.path}:${ip}`;
+      if (!rateLimiter.isAllowed(key, limit, windowMs)) {
+        throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Too many requests. Please try again later.", 429);
+      }
+      await next();
+    };
+  };
   app2.onError((err, c) => {
     const correlationId = c.get("correlationId") || randomUUID10();
     if (err instanceof AppError) {
@@ -2615,27 +2814,127 @@ function buildApp() {
     c.set("correlationId", randomUUID10());
     await next();
   });
+  const allowedOrigins = cfg.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
+  app2.use("*", cors({
+    origin: (origin, c) => {
+      if (!origin) return origin;
+      const isDev = cfg.NODE_ENV !== "production";
+      const isLocal = origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:");
+      if (isDev && isLocal) return origin;
+      if (allowedOrigins.includes(origin)) return origin;
+      if (cfg.NODE_ENV === "production") {
+        throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, `Origin ${origin} is not allowed`, 403);
+      }
+      return void 0;
+    },
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Tenant-Id", "X-Workspace-Id", "X-Actor-Id"],
+    credentials: true
+  }));
+  app2.use("*", async (c, next) => {
+    c.header("X-Robots-Tag", "noindex, nofollow");
+    await next();
+  });
+  app2.use("*", secureHeaders({
+    contentSecurityPolicy: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'", "http://localhost:3000", "http://localhost:5173", "https://*.vercel.app"],
+      frameAncestors: ["'none'"]
+    },
+    referrerPolicy: "no-referrer-when-downgrade",
+    xFrameOptions: "DENY",
+    xContentTypeOptions: "nosniff",
+    strictTransportSecurity: "max-age=31536000; includeSubDomains",
+    permissionsPolicy: {
+      geolocation: ["self"],
+      microphone: ["self"],
+      camera: ["self"]
+    }
+  }));
   function ctx(c) {
     const headers = {};
     c.req.raw.headers.forEach((v, k) => headers[k.toLowerCase()] = v);
     const id = identity.resolve(headers);
     return { repos, storage, transcription: providers.transcription, analysis: providers.analysis, audit, identity: id, config: cfg };
   }
+  const authGuard = async (c, next) => {
+    if (c.req.path.startsWith("/api/health/")) {
+      await next();
+      return;
+    }
+    const context = ctx(c);
+    const role = context.identity.role;
+    if (c.req.path.endsWith("/workspace/reset")) {
+      if (role !== "admin") {
+        throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Admin privileges required for reset", 403);
+      }
+    } else {
+      const method = c.req.method.toUpperCase();
+      if (method === "POST" || method === "PUT" || method === "DELETE") {
+        if (role !== "approver" && role !== "admin") {
+          throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Approver or Admin privileges required for mutation", 403);
+        }
+      }
+    }
+    await next();
+  };
+  app2.use("/api/v1/*", authGuard);
+  app2.use("/api/v1/*", (c, next) => {
+    if (c.req.path.endsWith("/audio")) {
+      return next();
+    }
+    return bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      // 2MB
+      onError: (c2) => {
+        throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Payload too large", 413);
+      }
+    })(c, next);
+  });
+  app2.use("/api/v1/meetings/:meetingId/audio", async (c, next) => {
+    const len = Number(c.req.header("content-length"));
+    if (len && len > cfg.AUDIO_MAX_BYTES) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "File size exceeds limit", 413);
+    }
+    return next();
+  });
+  app2.use("/api/v1/meetings/:meetingId/audio", bodyLimit({
+    maxSize: cfg.AUDIO_MAX_BYTES,
+    onError: (c) => {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "File size exceeds limit", 413);
+    }
+  }));
   app2.get("/api/health/live", (c) => c.json(liveness()));
   app2.get("/api/health/ready", async (c) => c.json(await readiness({ persistence: { ready: async () => true } })));
   const v1 = new Hono();
+  v1.post("/workspace/reset", rateLimit(cfg.RATE_LIMIT_ADMIN_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const context = ctx(c);
+    const { tenantId, workspaceId } = context.identity;
+    resetWorkspaceData(repos, tenantId, workspaceId);
+    await context.audit.record({
+      ...auditMeta(context, "00000000-0000-0000-0000-000000000000", c.get("correlationId") || ""),
+      entityType: "WORKSPACE",
+      entityId: workspaceId,
+      eventType: "WORKSPACE_RESET",
+      metadata: { tenantId }
+    });
+    return c.json({ data: { reset: true }, correlationId: c.get("correlationId") || "" });
+  });
   v1.post("/meetings", async (c) => {
-    const correlationId = c.get("correlationId");
+    const correlationId = c.get("correlationId") || "";
     const body = await c.req.json().catch(() => null);
     const meeting = await new CreateMeeting(ctx(c)).execute(body, correlationId);
     return c.json({ data: meeting, correlationId }, 201);
   });
   v1.get("/meetings/:meetingId", async (c) => {
-    const meeting = await new GetMeeting(ctx(c)).execute(c.req.param("meetingId"));
-    return c.json({ data: meeting, correlationId: c.get("correlationId") });
+    const meeting = await new GetMeeting(ctx(c)).execute(c.req.param("meetingId") || "");
+    return c.json({ data: meeting, correlationId: c.get("correlationId") || "" });
   });
   v1.post("/meetings/:meetingId/audio", async (c) => {
-    const correlationId = c.get("correlationId");
+    const correlationId = c.get("correlationId") || "";
     const form = await c.req.parseBody({ all: true }).catch(() => null);
     const file = form?.["file"];
     if (!file || typeof file.arrayBuffer !== "function") {
@@ -2644,47 +2943,51 @@ function buildApp() {
     const f = file;
     const bytes = new Uint8Array(await f.arrayBuffer());
     const asset = await new UploadMeetingAudio(ctx(c)).execute(
-      c.req.param("meetingId"),
+      c.req.param("meetingId") || "",
       { file: { bytes, fileName: f.name, mimeType: f.type || "application/octet-stream" } },
       correlationId
     );
     return c.json({ data: asset, correlationId }, 201);
   });
   v1.post("/meetings/:meetingId/transcript", async (c) => {
-    const correlationId = c.get("correlationId");
+    const correlationId = c.get("correlationId") || "";
     const body = await c.req.json().catch(() => ({}));
-    const transcript = await new SubmitMeetingTranscript(ctx(c)).execute(c.req.param("meetingId"), body ?? {}, correlationId);
+    const transcript = await new SubmitMeetingTranscript(ctx(c)).execute(c.req.param("meetingId") || "", body ?? {}, correlationId);
     return c.json({ data: transcript, correlationId }, 201);
   });
-  v1.post("/meetings/:meetingId/transcription", async (c) => {
-    const t = await new TranscribeMeetingAudio(ctx(c)).execute(c.req.param("meetingId"), c.get("correlationId"));
-    return c.json({ data: t, correlationId: c.get("correlationId") });
+  v1.post("/meetings/:meetingId/transcription", rateLimit(cfg.RATE_LIMIT_TRANSCRIPTION_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const t = await new TranscribeMeetingAudio(ctx(c)).execute(c.req.param("meetingId") || "", correlationId);
+    return c.json({ data: t, correlationId });
   });
-  v1.post("/meetings/:meetingId/analysis", async (c) => {
-    const a = await new AnalyzeMeetingTranscript(ctx(c)).execute(c.req.param("meetingId"), c.get("correlationId"));
-    return c.json({ data: a, correlationId: c.get("correlationId") }, 201);
+  v1.post("/meetings/:meetingId/analysis", rateLimit(cfg.RATE_LIMIT_ANALYSIS_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const a = await new AnalyzeMeetingTranscript(ctx(c)).execute(c.req.param("meetingId") || "", correlationId);
+    return c.json({ data: a, correlationId }, 201);
   });
   v1.get("/meetings/:meetingId/analysis", async (c) => {
-    const a = await new GetMeetingAnalysis(ctx(c)).execute(c.req.param("meetingId"));
-    return c.json({ data: a, correlationId: c.get("correlationId") });
+    const a = await new GetMeetingAnalysis(ctx(c)).execute(c.req.param("meetingId") || "");
+    return c.json({ data: a, correlationId: c.get("correlationId") || "" });
   });
   v1.get("/meetings/:meetingId/audit", async (c) => {
-    const events = await new ListMeetingAuditEvents(ctx(c)).execute(c.req.param("meetingId"));
-    return c.json({ data: events, correlationId: c.get("correlationId") });
+    const events = await new ListMeetingAuditEvents(ctx(c)).execute(c.req.param("meetingId") || "");
+    return c.json({ data: events, correlationId: c.get("correlationId") || "" });
   });
   v1.post("/actions/:actionId/approve", async (c) => {
-    await new ApproveProposedAction(ctx(c)).execute(c.req.param("actionId"), c.get("correlationId"));
-    return c.json({ data: { approved: true }, correlationId: c.get("correlationId") });
+    const correlationId = c.get("correlationId") || "";
+    await new ApproveProposedAction(ctx(c)).execute(c.req.param("actionId") || "", correlationId);
+    return c.json({ data: { approved: true }, correlationId });
   });
   v1.post("/actions/:actionId/reject", async (c) => {
+    const correlationId = c.get("correlationId") || "";
     const body = await c.req.json().catch(() => ({}));
-    await new RejectProposedAction(ctx(c)).execute(c.req.param("actionId"), body?.reason ?? "", c.get("correlationId"));
-    return c.json({ data: { rejected: true }, correlationId: c.get("correlationId") });
+    await new RejectProposedAction(ctx(c)).execute(c.req.param("actionId") || "", body?.reason ?? "", correlationId);
+    return c.json({ data: { rejected: true }, correlationId });
   });
-  v1.post("/meetings/:meetingId/agency/run", async (c) => {
-    const correlationId = c.get("correlationId");
+  v1.post("/meetings/:meetingId/agency/run", rateLimit(cfg.RATE_LIMIT_AGENCY_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = c.get("correlationId") || "";
     const body = await c.req.json().catch(() => ({}));
-    const run = await new RunMeetingAgency(ctx(c)).execute(c.req.param("meetingId"), correlationId, body);
+    const run = await new RunMeetingAgency(ctx(c)).execute(c.req.param("meetingId") || "", correlationId, body);
     return c.json({ data: run, correlationId }, 201);
   });
   v1.get("/agency/runs", async (c) => {
@@ -2692,21 +2995,21 @@ function buildApp() {
     const agentRole = c.req.query("agentRole");
     const status = c.req.query("status");
     const runs = await context.repos.agencyRun.list(context.identity.tenantId, context.identity.workspaceId, { agentRole, status });
-    return c.json({ data: runs, correlationId: c.get("correlationId") });
+    return c.json({ data: runs, correlationId: c.get("correlationId") || "" });
   });
   v1.get("/agency/runs/:runId", async (c) => {
     const context = ctx(c);
-    const runId = c.req.param("runId");
+    const runId = c.req.param("runId") || "";
     const run = await context.repos.agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
     if (!run) {
       throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Run not found", 404);
     }
     const steps = await context.repos.agencyRun.listSteps(context.identity.tenantId, context.identity.workspaceId, runId);
-    return c.json({ data: { run, steps }, correlationId: c.get("correlationId") });
+    return c.json({ data: { run, steps }, correlationId: c.get("correlationId") || "" });
   });
   v1.post("/agency/runs/:runId/approve", async (c) => {
     const context = ctx(c);
-    const runId = c.req.param("runId");
+    const runId = c.req.param("runId") || "";
     const run = await context.repos.agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
     if (!run) {
       throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Run not found", 404);
@@ -2715,17 +3018,17 @@ function buildApp() {
     run.finalOutcome = "APPROVED";
     await context.repos.agencyRun.save(run);
     await context.audit.record({
-      ...auditMeta(context, run.meetingId, c.get("correlationId")),
+      ...auditMeta(context, run.meetingId, c.get("correlationId") || ""),
       entityType: "AGENCY_RUN",
       entityId: runId,
       eventType: "FINAL_OUTPUT_APPROVED",
       metadata: {}
     });
-    return c.json({ data: { approved: true }, correlationId: c.get("correlationId") });
+    return c.json({ data: { approved: true }, correlationId: c.get("correlationId") || "" });
   });
   v1.post("/agency/runs/:runId/reject", async (c) => {
     const context = ctx(c);
-    const runId = c.req.param("runId");
+    const runId = c.req.param("runId") || "";
     const run = await context.repos.agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
     if (!run) {
       throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Run not found", 404);
@@ -2734,18 +3037,18 @@ function buildApp() {
     run.finalOutcome = "REJECTED";
     await context.repos.agencyRun.save(run);
     await context.audit.record({
-      ...auditMeta(context, run.meetingId, c.get("correlationId")),
+      ...auditMeta(context, run.meetingId, c.get("correlationId") || ""),
       entityType: "AGENCY_RUN",
       entityId: runId,
       eventType: "FINAL_OUTPUT_REJECTED",
       metadata: {}
     });
-    return c.json({ data: { rejected: true }, correlationId: c.get("correlationId") });
+    return c.json({ data: { rejected: true }, correlationId: c.get("correlationId") || "" });
   });
-  v1.post("/agency/runs/:runId/steps/:stepId/retry", async (c) => {
+  v1.post("/agency/runs/:runId/steps/:stepId/retry", rateLimit(cfg.RATE_LIMIT_AGENCY_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
     const context = ctx(c);
-    const runId = c.req.param("runId");
-    const stepId = c.req.param("stepId");
+    const runId = c.req.param("runId") || "";
+    const stepId = c.req.param("stepId") || "";
     const run = await context.repos.agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
     if (!run) {
       throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Run not found", 404);
@@ -2760,7 +3063,7 @@ function buildApp() {
     await context.repos.agencyRun.saveStep(step);
     run.status = "RUNNING";
     await context.repos.agencyRun.save(run);
-    return c.json({ data: { retried: true }, correlationId: c.get("correlationId") });
+    return c.json({ data: { retried: true }, correlationId: c.get("correlationId") || "" });
   });
   app2.route("/api/v1", v1);
   return app2;

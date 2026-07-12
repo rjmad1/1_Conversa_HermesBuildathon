@@ -10,10 +10,9 @@ Conversa turns meetings into completed work. It is an **audio-first** platform: 
 
 ## 📢 Public Release Disclosures
 
-* **Security Status**: Security regression tests pass. Tenant isolation is closed and verified.
-* **Authentication**: Production authentication is **not implemented**.
-* **Identity Headers**: Caller-supplied development tenant and workspace headers (`x-tenant-id`, `x-workspace-id`) are not production credentials and can be spoofed.
-* **Persistence**: Core repositories and storage models are volatile and remain strictly in-memory.
+* **Security Status**: Remediation completed. Production identity adapter, role-based authorization, rate-limiting, and payload size controls are live and verified by security regression tests.
+* **Authentication**: Enforces bearer tokens (`Authorization: Bearer <token>`) mapped server-side in production. Dev headers are disabled in production by default.
+* **Persistence**: Core repositories and storage models are volatile and remain strictly in-memory. Administrative workspace reset endpoint is available for data cleanup.
 * **Integrations**: External integrations (Slack, Jira, Salesforce, etc.) are planned for future milestones and are not live in this slice.
 * **Transcription**: Live-provider verification of audio transcripts is for demonstration purposes only and is not equivalent to production compliance certification.
 * **Demo Pathway**: The stable, tested path for the public demo uses a synthetic pasted transcript to avoid live audio upload limits.
@@ -107,6 +106,7 @@ Conversa is built on a modern, lightweight runtime environment:
 > **Start at [docs/INDEX.md](docs/INDEX.md)** — the single source of truth that maps every document and the reading order for builders.
 
 * [docs/INDEX.md](docs/INDEX.md) — Documentation index.
+* [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md) — Production readiness & security architecture.
 * [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — State of implementation.
 * [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — Architectural and security limits.
 * [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — End-user instructions.

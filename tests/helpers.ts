@@ -10,7 +10,7 @@ import { getConfig, resetConfigForTests } from "../src/shared/config";
 import type { AppEnv } from "../src/shared/config/env";
 
 export function makeIdentity(over: Partial<Identity> = {}): Identity {
-  return { tenantId: "demo", workspaceId: "demo", actorId: "dev-user", actorType: "user", ...over };
+  return { tenantId: "demo", workspaceId: "demo", actorId: "dev-user", actorType: "user", role: "approver", ...over };
 }
 
 export function makeContext(identity: Identity = makeIdentity(), env: Partial<AppEnv> = {}): AppContext {
