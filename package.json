@@ -10,7 +10,7 @@
     "test": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build && npx esbuild api/server.ts --bundle --platform=node --format=esm --target=node20 --outfile=api/index.js --packages=external",
     "dev": "vite",
     "serve": "vite preview"
   },

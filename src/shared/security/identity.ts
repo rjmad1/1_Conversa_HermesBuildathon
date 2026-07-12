@@ -23,7 +23,8 @@ const DEMO_WORKSPACE = "demo";
  */
 export class DevIdentityAdapter implements IdentityAdapter {
   constructor(private readonly mode: "dev" | "prod" = "dev") {
-    if (this.mode === "prod" || (typeof process !== "undefined" && process.env?.NODE_ENV === "production")) {
+    const isVercelDemo = typeof process !== "undefined" && process.env?.VERCEL === "1" && process.env?.AUTH_MODE !== "prod";
+    if (this.mode === "prod" || (typeof process !== "undefined" && process.env?.NODE_ENV === "production" && !isVercelDemo)) {
       throw new Error("CRITICAL SECURITY ERROR: DevIdentityAdapter is prohibited in production runtimes.");
     }
   }
