@@ -20,5 +20,6 @@
 * [Testing & Quality](Testing-and-Quality.md)
 * [Limitations & Risks](Known-Limitations-and-Risks.md)
 * [Demo Guide](Demo-Guide.md)
+* [Developer Guide](Developer-Guide.md)
 * [Roadmap](Roadmap.md)
 * [Glossary](Glossary.md)

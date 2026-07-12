@@ -52,10 +52,10 @@ HERMES is the core engineering group/platform defining the Conversa codebase arc
 Antigravity is the AI engineering assistant used for codebase auditing, security remediation, verification test suites creation, and documentation packaging.
 
 ### Where are limitations documented?
-Limitations are documented in [docs/KNOWN_LIMITATIONS.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/KNOWN_LIMITATIONS.md).
+Limitations are documented in [Known Limitations](KNOWN_LIMITATIONS.md).
 
 ### How are vulnerabilities reported?
-Do not open GitHub issues. Submit report details privately to the project administrator or email `rajaj@example.com`. See [SECURITY.md](file:///c:/Users/rajaj/Projects/1_Conversa/SECURITY.md) for details.
+Do not open GitHub issues. Submit report details privately to the project administrator or email `rajaj@example.com`. See [SECURITY.md](../SECURITY.md) for details.
 
 ### Where is the live demo?
 The live demo is hosted at:

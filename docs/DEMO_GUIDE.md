@@ -17,4 +17,4 @@ Once the dev server boots, open your browser and navigate to:
 http://localhost:3000
 ```
 
-Refer to the [DEMO_SCRIPT](file:///c:/Users/rajaj/Projects/1_Conversa/docs/DEMO_SCRIPT.md) for the exact walk-through steps and expected outputs.
+Refer to the [Demo Script](DEMO_SCRIPT.md) for the exact walk-through steps and expected outputs.

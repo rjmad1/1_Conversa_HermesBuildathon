@@ -13,4 +13,4 @@ This document serves as the guide for publishing this codebase safely to public 
 
 ## 2. File Inclusions and Exclusions
 
-Refer to [09-publication-manifest.md](file:///c:/Users/rajaj/Projects/1_Conversa/publication-readiness-artifacts/09-publication-manifest.md) for the complete list of files categorized for publishing or exclusion.
+Refer to [Publication Manifest](../publication-readiness-artifacts/09-publication-manifest.md) for the complete list of files categorized for publishing or exclusion.

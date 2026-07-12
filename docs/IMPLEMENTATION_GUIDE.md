@@ -41,7 +41,7 @@ graph TD
 ## 3. Domain Modules and Repositories
 
 ### Repository Interfaces
-The repository layers decouple database operations from controllers. Interfaces reside in `src/modules/repositories.ts` (e.g., `MeetingRepository`, `ActionRepository`, `AuditRepository`).
+The repository layers decouple database operations from controllers. Interfaces reside in `src/modules/meetings/domain/repositories.ts` (e.g., `MeetingRepo`, `ProposedAction`, etc.).
 
 ### In-Memory Implementations
 Since persistent database drivers are mocked or planned, active repositories are implemented using in-memory Maps in `src/infrastructure/repositories/in-memory.ts`.
@@ -73,7 +73,7 @@ Every operation writes to the `AuditRepository`. Re-processing identical audio f
 ## 5. Security and Logging Policies
 
 ### Logger Sink and Recursive Redaction
-The logging infrastructure is managed via `ConsoleLogger` in `src/shared/logger.ts`. Before data is output to stdout/stderr:
+The logging infrastructure is managed via `AppLogger` in `src/shared/logging/logger.ts`. Before data is output to stdout/stderr:
 * Key-value objects are recursively scanned up to a depth of 10.
 * Sensitive fields (e.g. keys containing `key`, `token`, `secret`, `audio`) are replaced with `[REDACTED]`.
 

@@ -19,4 +19,4 @@ This document summarizes the development completion metrics for Conversa.
 * **Enterprise Vision**: Aspirational database durability (D1/R2) and third-party integrations (Slack, Jira, Teams, Zoom) are currently unimplemented.
 * **Production Blockers**: Lack of persistent database, lack of cryptographic token parsing/verification, and lack of APM instrumentation.
 
-Refer to the full [08-completion-scorecard.md](file:///c:/Users/rajaj/Projects/1_Conversa/publication-readiness-artifacts/08-completion-scorecard.md) for individual component weightings and assessments.
+Refer to the full [Completion Scorecard](../publication-readiness-artifacts/08-completion-scorecard.md) for individual component weightings and assessments.

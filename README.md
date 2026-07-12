@@ -104,21 +104,21 @@ Conversa is built on a modern, lightweight runtime environment:
 
 ## Documentation Index
 
-> **Start at [docs/INDEX.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/INDEX.md)** — the single source of truth that maps every document and the reading order for builders.
+> **Start at [docs/INDEX.md](docs/INDEX.md)** — the single source of truth that maps every document and the reading order for builders.
 
-* [docs/INDEX.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/INDEX.md) — Documentation index.
-* [docs/CURRENT_STATE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/CURRENT_STATE.md) — State of implementation.
-* [docs/KNOWN_LIMITATIONS.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/KNOWN_LIMITATIONS.md) — Architectural and security limits.
-* [docs/USER_GUIDE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/USER_GUIDE.md) — End-user instructions.
-* [docs/ADMIN_GUIDE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/ADMIN_GUIDE.md) — Operations guide.
-* [docs/TROUBLESHOOTING_GUIDE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/TROUBLESHOOTING_GUIDE.md) — Fault resolution.
-* [docs/FAQ.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/FAQ.md) — Frequently asked questions.
-* [docs/IMPLEMENTATION_GUIDE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/IMPLEMENTATION_GUIDE.md) — Source code walkthrough.
-* [docs/USE_CASES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/USE_CASES.md) — Business use cases.
-* [docs/USER_STORIES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/USER_STORIES.md) — User stories and acceptance status.
+* [docs/INDEX.md](docs/INDEX.md) — Documentation index.
+* [docs/CURRENT_STATE.md](docs/CURRENT_STATE.md) — State of implementation.
+* [docs/KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) — Architectural and security limits.
+* [docs/USER_GUIDE.md](docs/USER_GUIDE.md) — End-user instructions.
+* [docs/ADMIN_GUIDE.md](docs/ADMIN_GUIDE.md) — Operations guide.
+* [docs/TROUBLESHOOTING_GUIDE.md](docs/TROUBLESHOOTING_GUIDE.md) — Fault resolution.
+* [docs/FAQ.md](docs/FAQ.md) — Frequently asked questions.
+* [docs/IMPLEMENTATION_GUIDE.md](docs/IMPLEMENTATION_GUIDE.md) — Source code walkthrough.
+* [docs/USE_CASES.md](docs/USE_CASES.md) — Business use cases.
+* [docs/USER_STORIES.md](docs/USER_STORIES.md) — User stories and acceptance status.
 
 ---
 
 ## License
 
-Conversa is distributed under the MIT License. See [LICENSE](file:///c:/Users/rajaj/Projects/1_Conversa/LICENSE) for details.
+Conversa is distributed under the MIT License. See [LICENSE](LICENSE) for details.
