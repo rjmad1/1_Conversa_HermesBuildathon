@@ -15,12 +15,18 @@ const DEMO_WORKSPACE = "demo";
 
 /**
  * Development identity adapter. Isolated behind IdentityAdapter; only active when
- * AUTH_MODE !== 'prod'. In production this MUST be replaced by an authenticated resolver.
- * Tenant/workspace may be overridden via headers (extension path documented in ADR 0003 §6),
- * but default to the fixed demo tenant so the single-tenant MVP works without auth.
+ * AUTH_MODE !== 'prod' and NODE_ENV !== 'production'.
+ *
+ * WARNING: Caller-controlled tenant/workspace headers ('x-tenant-id', 'x-workspace-id')
+ * are development-only conveniences and MUST NOT be used as authentication credentials in production.
+ * In production this adapter fails closed at boot time, and must be replaced by a secure verified token resolver.
  */
 export class DevIdentityAdapter implements IdentityAdapter {
-  constructor(private readonly mode: "dev" | "prod" = "dev") {}
+  constructor(private readonly mode: "dev" | "prod" = "dev") {
+    if (this.mode === "prod" || (typeof process !== "undefined" && process.env?.NODE_ENV === "production")) {
+      throw new Error("CRITICAL SECURITY ERROR: DevIdentityAdapter is prohibited in production runtimes.");
+    }
+  }
 
   isProduction(): boolean {
     return this.mode === "prod";

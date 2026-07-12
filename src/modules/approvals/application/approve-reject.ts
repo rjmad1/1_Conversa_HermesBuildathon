@@ -13,7 +13,7 @@ export class ApproveProposedAction {
 
     action.status = "APPROVED";
     action.updatedAt = new Date().toISOString();
-    await this.ctx.repos.meetingAnalysis.updateAction(action);
+    await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
     await this.ctx.audit.record({
       ...auditMeta(this.ctx, action.meetingId, correlationId),
       entityType: "PROPOSED_ACTION",
@@ -28,15 +28,16 @@ export class ApproveProposedAction {
 export class RejectProposedAction {
   constructor(private readonly ctx: AppContext) {}
   async execute(actionId: string, reason: string, correlationId: string): Promise<void> {
-    if (!reason || reason.trim().length === 0) throw new AppError(ErrorCode.REJECTION_REASON_REQUIRED, "Rejection requires a reason", 400);
     const action = await this.ctx.repos.meetingAnalysis.getAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, actionId);
     if (!action) throw new AppError(ErrorCode.NOT_FOUND, "Action not found", 404);
+
+    if (!reason || reason.trim().length === 0) throw new AppError(ErrorCode.REJECTION_REASON_REQUIRED, "Rejection requires a reason", 400);
     if (action.status !== "PROPOSED") throw new AppError(ErrorCode.INVALID_STATE_TRANSITION, "Only PROPOSED actions can be rejected", 409, { received: action.status });
 
     action.status = "REJECTED";
     action.updatedAt = new Date().toISOString();
-    await this.ctx.repos.meetingAnalysis.updateAction(action);
-    await this.ctx.repos.meetingAnalysis.saveApproval({
+    await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
+    await this.ctx.repos.meetingAnalysis.saveApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, {
       id: randomUUID(),
       actionId,
       decision: "REJECTED",

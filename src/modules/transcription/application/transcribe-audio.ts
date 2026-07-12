@@ -16,8 +16,14 @@ export class TranscribeMeetingAudio {
     const prior = exists.find((t) => t.source === "TRANSCRIPTION");
     if (prior) return prior;
 
+    const bytes = await this.ctx.storage.get(target.storageReference);
+    if (!bytes) throw new AppError(ErrorCode.STORAGE_OBJECT_MISSING, "Audio bytes unavailable for transcription", 410, { storageReference: "[redacted-content]" });
+
     try {
-      const result = await this.ctx.transcription.transcribe({ audioRef: target.storageReference, mimeType: target.mimeType, correlationId });
+      const result = await this.ctx.transcription.transcribe({
+        audio: { bytes, fileName: target.fileName, mimeType: target.mimeType },
+        correlationId,
+      });
       const id = randomUUID();
       const now = new Date().toISOString();
       const transcript: Transcript = {

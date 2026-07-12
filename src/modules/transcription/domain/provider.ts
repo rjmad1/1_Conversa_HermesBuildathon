@@ -1,8 +1,14 @@
 import type { TranscriptResult } from "../../../shared/validation/schemas";
 
-export interface TranscribeInput {
-  audioRef: string;
+/** Application-level audio input passed to transcription providers. */
+export interface TranscriptionAudioInput {
+  bytes: Uint8Array;
+  fileName: string;
   mimeType: string;
+}
+
+export interface TranscribeInput {
+  audio: TranscriptionAudioInput;
   correlationId: string;
 }
 

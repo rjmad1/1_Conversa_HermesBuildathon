@@ -27,16 +27,24 @@ export class OpenAITranscriptionProvider implements AudioTranscriptionProvider {
   ) {}
 
   async transcribe(input: TranscribeInput): Promise<TranscriptResult> {
+    const { bytes, fileName, mimeType } = input.audio;
+    const file = await OpenAI.toFile(new Blob([bytes as unknown as BlobPart]), fileName || "audio.bin", {
+      type: mimeType || "application/octet-stream",
+    });
     let attempt = 0;
     while (true) {
       try {
         const res = await this.client.audio.transcriptions.create(
-          { file: input.audioRef as unknown as OpenAI.Chat.ChatCompletionCreateParams["messages"], model: this.model } as never,
+          {
+            file,
+            model: this.model,
+          },
           { timeout: this.timeoutMs },
         );
-        const content = typeof res === "string" ? res : ((res as { text: string }).text ?? "");
+        const content = typeof res === "string" ? res : ((res as { text?: string }).text ?? "");
         return { language: "en", content, segments: [] };
-      } catch {
+      } catch (err) {
+        if (err instanceof AppError) throw err;
         attempt++;
         if (attempt > this.maxRetries) {
           logger.error({ correlationId: input.correlationId, operation: "transcribe" }, "transcription failed");

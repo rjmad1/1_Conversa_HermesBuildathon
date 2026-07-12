@@ -7,6 +7,7 @@ export enum ErrorCode {
   INVALID_STATE_TRANSITION = "INVALID_STATE_TRANSITION",
   REJECTION_REASON_REQUIRED = "REJECTION_REASON_REQUIRED",
   TRANSCRIPTION_FAILED = "TRANSCRIPTION_FAILED",
+  STORAGE_OBJECT_MISSING = "STORAGE_OBJECT_MISSING",
   ANALYSIS_FAILED = "ANALYSIS_FAILED",
   PROVIDER_ERROR = "PROVIDER_ERROR",
   DUPLICATE = "DUPLICATE",
@@ -17,6 +18,7 @@ export interface AppErrorDetails {
   field?: string;
   received?: unknown;
   allowed?: unknown;
+  storageReference?: string;
 }
 
 export class AppError extends Error {

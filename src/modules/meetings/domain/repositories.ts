@@ -33,18 +33,18 @@ export interface AnalysisRunRepo {
   save(r: AnalysisRun): Promise<void>;
   get(tenantId: string, workspaceId: string, id: string): Promise<AnalysisRun | null>;
   findByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<AnalysisRun[]>;
-  findByIdempotencyKey(key: string): Promise<AnalysisRun | null>;
+  findByIdempotencyKey(tenantId: string, workspaceId: string, key: string): Promise<AnalysisRun | null>;
 }
 
 export interface MeetingAnalysisRepo {
-  save(a: MeetingAnalysis): Promise<void>;
+  save(tenantId: string, workspaceId: string, a: MeetingAnalysis): Promise<void>;
   getByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<MeetingAnalysis | null>;
   getByRun(tenantId: string, workspaceId: string, runId: string): Promise<MeetingAnalysis | null>;
-  saveDecision(d: Decision): Promise<void>;
-  saveAction(a: ProposedAction): Promise<void>;
+  saveDecision(tenantId: string, workspaceId: string, d: Decision): Promise<void>;
+  saveAction(tenantId: string, workspaceId: string, a: ProposedAction): Promise<void>;
   getAction(tenantId: string, workspaceId: string, id: string): Promise<ProposedAction | null>;
-  updateAction(a: ProposedAction): Promise<void>;
-  saveApproval(p: ApprovalDecision): Promise<void>;
+  updateAction(tenantId: string, workspaceId: string, a: ProposedAction): Promise<void>;
+  saveApproval(tenantId: string, workspaceId: string, p: ApprovalDecision): Promise<void>;
   listActionsByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<ProposedAction[]>;
 }
 

@@ -7,7 +7,13 @@ import type { TranscriptResult } from "../../shared/validation/schemas";
  */
 export class FakeTranscriptionProvider implements AudioTranscriptionProvider {
   readonly name = "fake";
-  async transcribe(_input: TranscribeInput): Promise<TranscriptResult> {
+  async transcribe(input: TranscribeInput): Promise<TranscriptResult> {
+    // Touch inputs so misuse (e.g. passing a storage-reference string as bytes) would break.
+    if (!(input.audio.bytes instanceof Uint8Array) || input.audio.bytes.length === 0) {
+      throw new Error("FakeTranscriptionProvider requires real audio bytes");
+    }
+    void input.audio.fileName;
+    void input.audio.mimeType;
     return {
       language: "en",
       content:

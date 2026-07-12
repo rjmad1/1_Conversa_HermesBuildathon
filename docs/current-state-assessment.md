@@ -1,5 +1,7 @@
 # Current State Assessment — Conversa (pre Milestone: Audio-to-Governed-Action)
 
+> **Current-state notice:** Conversa is an active Buildathon prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+
 **Date:** 2026-07-12
 **Assessor role:** Enterprise Architect / Tech Lead
 **Repo:** `C:\Users\rajaj\Projects\1_Conversa`

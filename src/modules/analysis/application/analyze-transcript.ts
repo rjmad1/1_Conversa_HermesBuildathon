@@ -15,7 +15,7 @@ export class AnalyzeMeetingTranscript {
     if (!transcript) throw new AppError(ErrorCode.VALIDATION_ERROR, "No valid transcript to analyze", 400);
 
     const idempotencyKey = `analyze:${transcript.id}`;
-    const existingRun = await this.ctx.repos.analysisRun.findByIdempotencyKey(idempotencyKey);
+    const existingRun = await this.ctx.repos.analysisRun.findByIdempotencyKey(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, idempotencyKey);
     if (existingRun && existingRun.status === "COMPLETED") {
       const existing = await this.ctx.repos.meetingAnalysis.getByMeeting(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, meetingId);
       if (existing) return existing;
@@ -48,9 +48,9 @@ export class AnalyzeMeetingTranscript {
         throw new AppError(ErrorCode.ANALYSIS_FAILED, "Malformed analysis output rejected", 422);
       }
       const analysis: MeetingAnalysis = { ...validated.data, id: randomUUID(), meetingId };
-      await this.ctx.repos.meetingAnalysis.save(analysis);
-      for (const d of analysis.decisions) await this.ctx.repos.meetingAnalysis.saveDecision(d);
-      for (const a of analysis.proposedActions) await this.ctx.repos.meetingAnalysis.saveAction(a);
+      await this.ctx.repos.meetingAnalysis.save(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, analysis);
+      for (const d of analysis.decisions) await this.ctx.repos.meetingAnalysis.saveDecision(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, d);
+      for (const a of analysis.proposedActions) await this.ctx.repos.meetingAnalysis.saveAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, a);
 
       run.status = "COMPLETED";
       run.completedAt = new Date().toISOString();

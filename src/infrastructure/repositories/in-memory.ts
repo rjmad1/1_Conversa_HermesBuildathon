@@ -18,8 +18,10 @@ import type {
   ApprovalDecision,
   AuditEvent,
 } from "../../shared/validation/schemas";
+import { AppError, ErrorCode } from "../../shared/errors/AppError";
 
-function scopeMatch(a: { tenantId: string; workspaceId: string }, tenantId: string, workspaceId: string): boolean {
+function scopeMatch(a: { tenantId?: string; workspaceId?: string }, tenantId: string, workspaceId: string): boolean {
+  if (!a.tenantId || !a.workspaceId || !tenantId || !workspaceId) return false;
   return a.tenantId === tenantId && a.workspaceId === workspaceId;
 }
 
@@ -84,8 +86,9 @@ export class InMemoryAnalysisRunRepo implements AnalysisRunRepo {
   async findByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<AnalysisRun[]> {
     return [...this.runs.values()].filter((r) => r.meetingId === meetingId && scopeMatch(r, tenantId, workspaceId));
   }
-  async findByIdempotencyKey(key: string): Promise<AnalysisRun | null> {
-    return [...this.runs.values()].find((r) => r.idempotencyKey === key) ?? null;
+  async findByIdempotencyKey(tenantId: string, workspaceId: string, key: string): Promise<AnalysisRun | null> {
+    const r = [...this.runs.values()].find((r) => r.idempotencyKey === key) ?? null;
+    return r && scopeMatch(r, tenantId, workspaceId) ? r : null;
   }
 }
 
@@ -94,32 +97,79 @@ export class InMemoryMeetingAnalysisRepo implements MeetingAnalysisRepo {
   private decisions = new Map<string, Decision>();
   private actions = new Map<string, ProposedAction>();
   private approvals = new Map<string, ApprovalDecision>();
-  async save(a: MeetingAnalysis): Promise<void> {
+
+  constructor(
+    private readonly meetingRepoLookup?: () => MeetingRepo,
+    private readonly analysisRunRepoLookup?: () => AnalysisRunRepo,
+  ) {}
+
+  private getMeetingRepo(): MeetingRepo {
+    if (!this.meetingRepoLookup) {
+      throw new Error("MeetingRepo lookup not configured in InMemoryMeetingAnalysisRepo");
+    }
+    return this.meetingRepoLookup();
+  }
+
+  private getAnalysisRunRepo(): AnalysisRunRepo {
+    if (!this.analysisRunRepoLookup) {
+      throw new Error("AnalysisRunRepo lookup not configured in InMemoryMeetingAnalysisRepo");
+    }
+    return this.analysisRunRepoLookup();
+  }
+
+  async save(tenantId: string, workspaceId: string, a: MeetingAnalysis): Promise<void> {
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, a.meetingId);
+    if (!m) throw new AppError(ErrorCode.NOT_FOUND, "Meeting not found", 404);
     this.analyses.set(a.id, a);
   }
+
   async getByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<MeetingAnalysis | null> {
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, meetingId);
+    if (!m) return null;
     return [...this.analyses.values()].find((a) => a.meetingId === meetingId) ?? null;
   }
-  async getByRun(): Promise<MeetingAnalysis | null> {
-    return null;
+
+  async getByRun(tenantId: string, workspaceId: string, runId: string): Promise<MeetingAnalysis | null> {
+    const r = await this.getAnalysisRunRepo().get(tenantId, workspaceId, runId);
+    if (!r) return null;
+    return [...this.analyses.values()].find((a) => a.meetingId === r.meetingId) ?? null;
   }
-  async saveDecision(d: Decision): Promise<void> {
+
+  async saveDecision(tenantId: string, workspaceId: string, d: Decision): Promise<void> {
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, d.meetingId);
+    if (!m) throw new AppError(ErrorCode.NOT_FOUND, "Meeting not found", 404);
     this.decisions.set(d.id, d);
   }
-  async saveAction(a: ProposedAction): Promise<void> {
+
+  async saveAction(tenantId: string, workspaceId: string, a: ProposedAction): Promise<void> {
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, a.meetingId);
+    if (!m) throw new AppError(ErrorCode.NOT_FOUND, "Meeting not found", 404);
     this.actions.set(a.id, a);
   }
+
   async getAction(tenantId: string, workspaceId: string, id: string): Promise<ProposedAction | null> {
     const a = this.actions.get(id);
-    return a ?? null;
+    if (!a) return null;
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, a.meetingId);
+    if (!m) return null;
+    return a;
   }
-  async updateAction(a: ProposedAction): Promise<void> {
+
+  async updateAction(tenantId: string, workspaceId: string, a: ProposedAction): Promise<void> {
+    const existing = await this.getAction(tenantId, workspaceId, a.id);
+    if (!existing) throw new AppError(ErrorCode.NOT_FOUND, "Action not found", 404);
     this.actions.set(a.id, a);
   }
-  async saveApproval(p: ApprovalDecision): Promise<void> {
+
+  async saveApproval(tenantId: string, workspaceId: string, p: ApprovalDecision): Promise<void> {
+    const action = await this.getAction(tenantId, workspaceId, p.actionId);
+    if (!action) throw new AppError(ErrorCode.NOT_FOUND, "Action not found", 404);
     this.approvals.set(p.id, p);
   }
+
   async listActionsByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<ProposedAction[]> {
+    const m = await this.getMeetingRepo().get(tenantId, workspaceId, meetingId);
+    if (!m) return [];
     return [...this.actions.values()].filter((a) => a.meetingId === meetingId);
   }
 }
@@ -146,13 +196,22 @@ export interface Repos {
 }
 
 export function buildInMemoryRepos(): Repos {
+  const meeting = new InMemoryMeetingRepo();
+  const audio = new InMemoryAudioAssetRepo();
+  const transcript = new InMemoryTranscriptRepo();
+  const analysisRun = new InMemoryAnalysisRunRepo();
+  const meetingAnalysis = new InMemoryMeetingAnalysisRepo(
+    () => meeting,
+    () => analysisRun,
+  );
+  const audit = new InMemoryAuditRepo();
   return {
-    meeting: new InMemoryMeetingRepo(),
-    audio: new InMemoryAudioAssetRepo(),
-    transcript: new InMemoryTranscriptRepo(),
-    analysisRun: new InMemoryAnalysisRunRepo(),
-    meetingAnalysis: new InMemoryMeetingAnalysisRepo(),
-    audit: new InMemoryAuditRepo(),
+    meeting,
+    audio,
+    transcript,
+    analysisRun,
+    meetingAnalysis,
+    audit,
   };
 }
 

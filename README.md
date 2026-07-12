@@ -1,5 +1,7 @@
 # Conversa — Audio-First Meeting Intelligence Platform
 
+> **Current-state notice:** Conversa is an active Buildathon prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+
 Conversa turns meetings into completed work. It is an **audio-first** platform: it ingests
 meeting **audio** and **transcripts**, transcribes audio, and uses AI agents to propose
 governed, approval-gated actions across your stack (Jira, Salesforce, HubSpot, code repos,
