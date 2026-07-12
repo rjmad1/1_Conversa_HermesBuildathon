@@ -19,6 +19,8 @@ import type {
   AuditEvent,
 } from "../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../shared/errors/AppError";
+import type { AgencyRunRepo } from "../../modules/agency/domain/repositories";
+import { InMemoryAgencyRunRepo } from "../../modules/agency/infrastructure/agency-repository";
 
 function scopeMatch(a: { tenantId?: string; workspaceId?: string }, tenantId: string, workspaceId: string): boolean {
   if (!a.tenantId || !a.workspaceId || !tenantId || !workspaceId) return false;
@@ -193,6 +195,7 @@ export interface Repos {
   analysisRun: AnalysisRunRepo;
   meetingAnalysis: MeetingAnalysisRepo;
   audit: AuditRepo;
+  agencyRun: AgencyRunRepo;
 }
 
 export function buildInMemoryRepos(): Repos {
@@ -205,6 +208,7 @@ export function buildInMemoryRepos(): Repos {
     () => analysisRun,
   );
   const audit = new InMemoryAuditRepo();
+  const agencyRun = new InMemoryAgencyRunRepo();
   return {
     meeting,
     audio,
@@ -212,6 +216,7 @@ export function buildInMemoryRepos(): Repos {
     analysisRun,
     meetingAnalysis,
     audit,
+    agencyRun,
   };
 }
 

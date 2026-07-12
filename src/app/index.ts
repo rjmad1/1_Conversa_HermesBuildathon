@@ -20,6 +20,8 @@ import { AnalyzeMeetingTranscript } from "../modules/analysis/application/analyz
 import { GetMeetingAnalysis } from "../modules/analysis/application/get-analysis";
 import { ApproveProposedAction, RejectProposedAction } from "../modules/approvals/application/approve-reject";
 import { ListMeetingAuditEvents } from "../modules/audit/application/list-audit";
+import { RunMeetingAgency } from "../modules/agency/application/run-meeting-agency";
+import { auditMeta } from "../modules/app-context";
 
 type AppVars = { correlationId: string };
 type AppEnv = { Variables: AppVars };
@@ -124,6 +126,102 @@ export function buildApp(): Hono<AppEnv> {
     const body = await c.req.json().catch(() => ({}));
     await new RejectProposedAction(ctx(c)).execute(c.req.param("actionId"), (body as { reason?: string })?.reason ?? "", c.get("correlationId"));
     return c.json({ data: { rejected: true }, correlationId: c.get("correlationId") });
+  });
+
+  // Agency Control endpoints
+  v1.post("/meetings/:meetingId/agency/run", async (c) => {
+    const correlationId = c.get("correlationId");
+    const body = await c.req.json().catch(() => ({}));
+    const run = await new RunMeetingAgency(ctx(c)).execute(c.req.param("meetingId"), correlationId, body);
+    return c.json({ data: run, correlationId }, 201);
+  });
+
+  v1.get("/agency/runs", async (c) => {
+    const context = ctx(c);
+    const agentRole = c.req.query("agentRole");
+    const status = c.req.query("status");
+    const runs = await (context.repos as any).agencyRun.list(context.identity.tenantId, context.identity.workspaceId, { agentRole, status });
+    return c.json({ data: runs, correlationId: c.get("correlationId") });
+  });
+
+  v1.get("/agency/runs/:runId", async (c) => {
+    const context = ctx(c);
+    const runId = c.req.param("runId");
+    const run = await (context.repos as any).agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
+    if (!run) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Run not found", 404);
+    }
+    const steps = await (context.repos as any).agencyRun.listSteps(context.identity.tenantId, context.identity.workspaceId, runId);
+    return c.json({ data: { run, steps }, correlationId: c.get("correlationId") });
+  });
+
+  v1.post("/agency/runs/:runId/approve", async (c) => {
+    const context = ctx(c);
+    const runId = c.req.param("runId");
+    const run = await (context.repos as any).agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
+    if (!run) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Run not found", 404);
+    }
+    run.status = "COMPLETED";
+    run.finalOutcome = "APPROVED";
+    await (context.repos as any).agencyRun.save(run);
+
+    await context.audit.record({
+      ...auditMeta(context, run.meetingId, c.get("correlationId")),
+      entityType: "AGENCY_RUN",
+      entityId: runId,
+      eventType: "FINAL_OUTPUT_APPROVED",
+      metadata: {},
+    });
+
+    return c.json({ data: { approved: true }, correlationId: c.get("correlationId") });
+  });
+
+  v1.post("/agency/runs/:runId/reject", async (c) => {
+    const context = ctx(c);
+    const runId = c.req.param("runId");
+    const run = await (context.repos as any).agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
+    if (!run) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Run not found", 404);
+    }
+    run.status = "COMPLETED";
+    run.finalOutcome = "REJECTED";
+    await (context.repos as any).agencyRun.save(run);
+
+    await context.audit.record({
+      ...auditMeta(context, run.meetingId, c.get("correlationId")),
+      entityType: "AGENCY_RUN",
+      entityId: runId,
+      eventType: "FINAL_OUTPUT_REJECTED",
+      metadata: {},
+    });
+
+    return c.json({ data: { rejected: true }, correlationId: c.get("correlationId") });
+  });
+
+  v1.post("/agency/runs/:runId/steps/:stepId/retry", async (c) => {
+    const context = ctx(c);
+    const runId = c.req.param("runId");
+    const stepId = c.req.param("stepId");
+    const run = await (context.repos as any).agencyRun.get(context.identity.tenantId, context.identity.workspaceId, runId);
+    if (!run) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Run not found", 404);
+    }
+    const step = await (context.repos as any).agencyRun.getStep(context.identity.tenantId, context.identity.workspaceId, stepId);
+    if (!step) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Step not found", 404);
+    }
+
+    // Mark step as completed and run as active again
+    step.status = "COMPLETED";
+    step.errorCode = null;
+    step.escalationReason = null;
+    await (context.repos as any).agencyRun.saveStep(step);
+
+    run.status = "RUNNING";
+    await (context.repos as any).agencyRun.save(run);
+
+    return c.json({ data: { retried: true }, correlationId: c.get("correlationId") });
   });
 
   app.route("/api/v1", v1);
