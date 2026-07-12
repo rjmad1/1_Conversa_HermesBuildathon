@@ -1,0 +1,82 @@
+{
+  "caseId": "EVAL-009",
+  "title": "Long Transcript Boundary",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/fixtures/transcripts/09-long-transcript-boundary.txt",
+  "categories": ["performance", "scalability", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Captures the multi-person kickoff sync discussing R2 storage, Whisper API, D1 database setup, and Vitest testing"
+    ],
+    "requiredTopics": ["infrastructure", "storage", "transcription", "testing"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Provision R2 buckets and define ACLs",
+        "owner": "David",
+        "dueDate": "next Wednesday",
+        "priority": "HIGH",
+        "evidence": "David: I'll own provisioning the R2 buckets and setting up initial ACLs. I can have that done by next Wednesday."
+      },
+      {
+        "description": "Draft transcription retry logic",
+        "owner": "Sarah",
+        "dueDate": "Friday",
+        "priority": "MEDIUM",
+        "evidence": "Sarah: I'll work on the transcription retry mechanism to handle provider rate-limits. I can draft that by Friday."
+      },
+      {
+        "description": "Construct D1 database schemas",
+        "owner": "David",
+        "dueDate": "next Friday",
+        "priority": "HIGH",
+        "evidence": "David: I can also look at the D1 database schemas for auditing. I'll get those schemas drafted by next Friday."
+      },
+      {
+        "description": "Set up Vitest integration tests",
+        "owner": "Rajeev",
+        "dueDate": "next Monday",
+        "priority": "MEDIUM",
+        "evidence": "Rajeev: I'll configure the Vitest environment and write standard integration wrappers. Let's target next Monday for that."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {"actionDescription": "Provision R2 buckets", "expectedOwner": "David", "allowNull": false},
+      {"actionDescription": "Draft transcription retry logic", "expectedOwner": "Sarah", "allowNull": false},
+      {"actionDescription": "Construct D1 database schemas", "expectedOwner": "David", "allowNull": false},
+      {"actionDescription": "Set up Vitest integration tests", "expectedOwner": "Rajeev", "allowNull": false}
+    ],
+    "dueDateExpectations": [
+      {"actionDescription": "Provision R2 buckets", "expectedDatePattern": "Wednesday", "allowNull": false},
+      {"actionDescription": "Draft transcription retry logic", "expectedDatePattern": "Friday", "allowNull": false},
+      {"actionDescription": "Construct D1 database schemas", "expectedDatePattern": "Friday", "allowNull": false},
+      {"actionDescription": "Set up Vitest integration tests", "expectedDatePattern": "Monday", "allowNull": false}
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "David: I'll own provisioning the R2 buckets and setting up initial ACLs.",
+      "Sarah: I'll work on the transcription retry mechanism",
+      "David: I can also look at the D1 database schemas",
+      "Rajeev: I'll configure the Vitest environment"
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Dropping any of the 4 required actions due to length limits or truncation",
+      "Confusing the two tasks assigned to David"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that all 4 actions are present. Verify that David is correctly assigned both the R2 bucket and D1 schema tasks."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

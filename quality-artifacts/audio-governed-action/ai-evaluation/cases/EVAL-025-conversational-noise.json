@@ -1,0 +1,60 @@
+{
+  "caseId": "EVAL-025",
+  "title": "Conversational Noise Robustness",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/25-noisy-conversational-language.txt",
+  "categories": ["functional", "linguistic-noise", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions task assignment to Rajeev to fix the login bug tomorrow",
+      "Ignores conversational stutters, uh, um, filler words, and like"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Fix the login bug",
+        "owner": "Rajeev",
+        "dueDate": "tomorrow",
+        "priority": "HIGH",
+        "evidence": "Rajeev: Oh, right. Yeah, that's, uh, the login bug. I... I can, like, probably, you know, take a look at it... uh, tomorrow morning."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Fix the login bug",
+        "expectedOwner": "Rajeev",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Fix the login bug",
+        "expectedDatePattern": "tomorrow",
+        "allowNull": false
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Rajeev: Oh, right. Yeah, that's, uh, the login bug. I... I can, like, probably, you know, take a look at it... uh, tomorrow morning."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Including filler words ('like', 'um', 'uh', 'you know') in the action description or summary"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that the model successfully resolves the action item despite the highly disfluent, stuttered phrasing."
+  ],
+  "assumptions": [
+    "Linguistic disfluency must be sanitized by the extraction logic."
+  ]
+}

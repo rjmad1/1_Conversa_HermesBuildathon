@@ -1,0 +1,61 @@
+{
+  "caseId": "EVAL-028",
+  "title": "Cross-Meeting References Filtering",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/28-cross-meeting-reference.txt",
+  "categories": ["functional", "temporal-grounding", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions last week's RFC drafting being completed by Rajeev",
+      "Mentions Priya's commitment to write the user guides for today's release"
+    ],
+    "requiredTopics": ["planning", "documentation"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Write the user guides for the release",
+        "owner": "Priya",
+        "priority": "MEDIUM",
+        "evidence": "Priya: Today, I will write the user guides for the release."
+      },
+      {
+        "description": "Review the user guides",
+        "owner": "Rajeev",
+        "priority": "LOW",
+        "evidence": "Rajeev: Great, I will help review them."
+      }
+    ],
+    "prohibitedActions": [
+      {
+        "description": "Draft the integration RFC"
+      }
+    ],
+    "ownerExpectations": [
+      { "actionDescription": "Write the user guides", "expectedOwner": "Priya" },
+      { "actionDescription": "Review the user guides", "expectedOwner": "Rajeev" }
+    ],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Priya: Today, I will write the user guides for the release.",
+      "Rajeev: Great, I will help review them."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Extracting 'Draft the integration RFC' as a new proposed action for today's meeting (it was completed last week)"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-EVD-001",
+    "CF-HAL-001",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that the RFC drafting is NOT emitted as a new proposed action. The model must recognize it is a historical complete reference."
+  ],
+  "assumptions": [
+    "Tasks explicitly discussed as already completed in past meetings should not be generated as active new action items."
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "caseId": "EVAL-016",
+  "title": "Action Without Explicit Deadline",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/16-action-without-explicit-deadline.txt",
+  "categories": ["functional", "null-handling", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions Rajeev owning the update to the team page logo",
+      "Explicitly notes there is no deadline for this task"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Update the team page logo",
+        "owner": "Rajeev",
+        "dueDate": null,
+        "priority": "LOW",
+        "evidence": "Rajeev: Sure, I can do that. I will own the logo update."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Update the team page logo",
+        "expectedOwner": "Rajeev",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Update the team page logo",
+        "expectedDatePattern": null,
+        "allowNull": true
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Rajeev: Sure, I can do that. I will own the logo update."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Generating a dummy date (e.g. today or default week-out) when no deadline was discussed"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that the dueDate field is strictly null. Any non-null value triggers a critical failure."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "caseId": "EVAL-024",
+  "title": "Large Action List Processing",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/24-large-action-list.txt",
+  "categories": ["performance", "scalability", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Captures the database backup, release notes, test coordination, unicode validation, environment variable update, RFC draft, R2 setup, and local configuration updates"
+    ],
+    "requiredTopics": ["infrastructure", "planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      { "description": "Back up the database tables", "owner": "Rajeev", "dueDate": "today", "priority": "HIGH" },
+      { "description": "Write the release notes", "owner": "Priya", "dueDate": "tomorrow", "priority": "MEDIUM" },
+      { "description": "Coordinate the test runs", "owner": "David", "dueDate": "Thursday", "priority": "MEDIUM" },
+      { "description": "Verify the unicode support", "owner": "François", "dueDate": null, "priority": "MEDIUM" },
+      { "description": "Update the environment variables", "owner": "Priya", "dueDate": null, "priority": "MEDIUM" },
+      { "description": "Draft the integration RFC", "owner": "Rajeev", "dueDate": null, "priority": "MEDIUM" },
+      { "description": "Provision the R2 storage bucket", "owner": "David", "dueDate": null, "priority": "HIGH" },
+      { "description": "Update the local configurations", "owner": "Rajeev", "dueDate": null, "priority": "LOW" }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      { "actionDescription": "Back up the database tables", "expectedOwner": "Rajeev" },
+      { "actionDescription": "Write the release notes", "expectedOwner": "Priya" },
+      { "actionDescription": "Coordinate the test runs", "expectedOwner": "David" },
+      { "actionDescription": "Verify the unicode support", "expectedOwner": "François" },
+      { "actionDescription": "Update the environment variables", "expectedOwner": "Priya" },
+      { "actionDescription": "Draft the integration RFC", "expectedOwner": "Rajeev" },
+      { "actionDescription": "Provision the R2 storage bucket", "expectedOwner": "David" },
+      { "actionDescription": "Update the local configurations", "expectedOwner": "Rajeev" }
+    ],
+    "dueDateExpectations": [
+      { "actionDescription": "Back up the database tables", "expectedDatePattern": "today" },
+      { "actionDescription": "Write the release notes", "expectedDatePattern": "tomorrow" },
+      { "actionDescription": "Coordinate the test runs", "expectedDatePattern": "Thursday" }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Rajeev will back up the database tables today.",
+      "Priya will write the release notes tomorrow.",
+      "David will coordinate the test runs by Thursday.",
+      "François will verify the unicode support.",
+      "Priya will update the environment variables.",
+      "Rajeev will draft the integration RFC.",
+      "David will provision the R2 storage bucket.",
+      "Rajeev will update the local configurations."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Truncating the action list to fewer than 8 tasks"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that all 8 tasks are successfully parsed and assigned without loss."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

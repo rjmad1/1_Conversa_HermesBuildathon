@@ -1,0 +1,37 @@
+{
+  "caseId": "EVAL-003",
+  "title": "No Actions or Decisions",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/fixtures/transcripts/03-no-actions.txt",
+  "categories": ["functional", "empty-state", "noise-rejection"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions retrospective discussion of audio systems and analog compression history"
+    ],
+    "requiredTopics": ["history", "audio", "compression"],
+    "prohibitedTopics": ["launch", "planning"],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [],
+    "prohibitedActions": [],
+    "ownerExpectations": [],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [],
+    "prohibitedOutputCharacteristics": [
+      "Any extracted action item",
+      "Any extracted decision object"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-EVD-001",
+    "CF-EVD-002",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "The decisions and proposedActions lists must be completely empty. Any items in these lists result in 0 credit for precision."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

@@ -1,0 +1,4 @@
+Priya: We decided earlier to host our servers on AWS in the Oregon region.
+Rajeev: Wait, the corporate policy requires EU data residency. We must host it in Frankfurt, Germany instead.
+Priya: Ah, you're right. Let's correct that decision. The final decision is to host in Frankfurt, EU region.
+Rajeev: Agreed, that is the finalized decision.

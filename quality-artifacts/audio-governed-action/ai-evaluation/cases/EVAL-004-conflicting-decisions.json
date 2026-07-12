@@ -1,0 +1,71 @@
+{
+  "caseId": "EVAL-004",
+  "title": "Conflicting Decisions & Correction Resolution",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/fixtures/transcripts/04-conflicting-decisions.txt",
+  "categories": ["functional", "decisions", "corrections"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Captures the revision of the launch date from the 15th to the 20th"
+    ],
+    "requiredTopics": ["launch", "planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [
+      {
+        "description": "Launch the beta on the 20th",
+        "evidence": "okay let's agree on the 20th. That's the final decision."
+      }
+    ],
+    "prohibitedDecisions": [
+      "Launch the beta on the 15th"
+    ],
+    "requiredActions": [
+      {
+        "description": "Launch the beta",
+        "owner": null,
+        "dueDate": "20th",
+        "priority": "HIGH",
+        "evidence": "Yes, the final date is the 20th."
+      }
+    ],
+    "prohibitedActions": [
+      {
+        "description": "Launch the beta on the 15th"
+      }
+    ],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Launch the beta",
+        "expectedOwner": null,
+        "allowNull": true
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Launch the beta",
+        "expectedDatePattern": "20th",
+        "allowNull": false
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "okay let's agree on the 20th. That's the final decision.",
+      "Yes, the final date is the 20th."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Having a final decision of launching on the 15th",
+      "Having both 15th and 20th as active decisions without warning"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-003",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "The model must correctly resolve the timeline adjustment and output the finalized agreement (20th) only."
+  ],
+  "assumptions": [
+    "The 15th is superseded by the 20th as the final agreed date."
+  ]
+}

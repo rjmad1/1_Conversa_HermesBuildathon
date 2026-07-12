@@ -1,0 +1,60 @@
+{
+  "caseId": "EVAL-015",
+  "title": "Action Without Explicit Owner",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/15-action-without-explicit-owner.txt",
+  "categories": ["functional", "null-handling", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions the need to revise the documentation before the beta launch",
+      "Explicitly notes the task is currently unassigned"
+    ],
+    "requiredTopics": ["launch", "planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Update the documentation",
+        "owner": null,
+        "dueDate": "next week",
+        "priority": "HIGH",
+        "evidence": "Let's make sure someone updates the documentation by next week."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Update the documentation",
+        "expectedOwner": null,
+        "allowNull": true
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Update the documentation",
+        "expectedDatePattern": "week",
+        "allowNull": false
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Let's make sure someone updates the documentation by next week."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Assigning the task to Priya or Rajeev without explicit evidence",
+      "Setting ownerName to a placeholder like 'someone' or 'unknown'"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-EVD-003",
+    "CF-STR-002"
+  ],
+  "scoringNotes": [
+    "Verify that ownerName is strictly null. Mapping to any speaker name triggers a critical failure."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "caseId": "EVAL-018",
+  "title": "Corrected Decision Resolution",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/18-corrected-decision.txt",
+  "categories": ["functional", "decisions", "corrections"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions hosting decision being corrected to Frankfurt EU region due to data residency policies"
+    ],
+    "requiredTopics": ["security", "infrastructure"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [
+      {
+        "description": "Host servers in Frankfurt, EU region",
+        "evidence": "The final decision is to host in Frankfurt, EU region."
+      }
+    ],
+    "prohibitedDecisions": [
+      "Host servers on AWS in the Oregon region"
+    ],
+    "requiredActions": [],
+    "prohibitedActions": [],
+    "ownerExpectations": [],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "The final decision is to host in Frankfurt, EU region."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Emitting the Oregon region hosting option as a final decision",
+      "Emitting two conflicting hosting decisions"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-003",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that only the corrected, final decision is extracted. The Oregon option must be omitted."
+  ],
+  "assumptions": [
+    "Decisions that are explicitly corrected or superseded in the meeting must not be reported as final outcomes."
+  ]
+}
