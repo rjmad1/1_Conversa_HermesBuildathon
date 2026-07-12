@@ -13,12 +13,14 @@ https://1-conversa-hermes-buildathon.vercel.app/
 ## Intended Demo Flow
 To ensure a stable demonstration, use the **Pasted Transcript** pathway:
 1. Paste a mock transcript detailing team member roles and actionable items (e.g. "Alice will finish the API docs by Friday").
-2. Enter your OpenAI API key in the configuration panel (this key remains local in your browser memory).
-3. Click **Analyze Transcript** to trigger parsing.
-4. Review the extracted output across four tabs:
+2. Click **Analyze pasted transcript** to trigger parsing.
+3. Review the extracted output:
    * **Summary**: Concise overview of the meeting.
    * **Decisions**: Key agreements.
    * **Risks**: Roadblocks identified.
    * **Action Items**: Table of tasks.
-5. Review proposed action items. Click **Approve** or **Reject** to manage the workflow.
-6. Click **Show Audit Logs** to review the scoped logging trace.
+4. Review proposed action items. Click **Approve** or **Reject** to manage the workflow.
+5. Click **View audit timeline** to review scoped audit events.
+
+> [!NOTE]
+> In this prototype, provider configuration is server-side. There is no production authentication in the UI.

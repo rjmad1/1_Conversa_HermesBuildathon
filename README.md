@@ -2,7 +2,7 @@
 
 > **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
-Conversa turns meetings into completed work. It is an **audio-first** platform: it ingests meeting **audio** and **transcripts**, transcribes audio, and uses AI agents to propose governed, approval-gated actions across your stack (Jira, Salesforce, HubSpot, code repos, internal tools). No video is captured, processed, or played back in this release.
+Conversa turns meetings into completed work. It is an **audio-first** platform: it ingests meeting **audio** and **transcripts**, transcribes audio, and proposes governed, approval-gated actions. No video is captured, processed, or played back in this release.
 
 > **Audio-first, not audio-only forever.** Video is a documented future extension (see `docs/adr/0002-audio-first-media-scope.md`) but is **not implemented** in this release.
 
@@ -14,7 +14,7 @@ Conversa turns meetings into completed work. It is an **audio-first** platform: 
 * **Authentication**: Production authentication is **not implemented**.
 * **Identity Headers**: Caller-supplied development tenant and workspace headers (`x-tenant-id`, `x-workspace-id`) are not production credentials and can be spoofed.
 * **Persistence**: Core repositories and storage models are volatile and remain strictly in-memory.
-* **Integrations**: External integrations (Slack, Jira, Salesforce) remain partial, conceptual, or planned.
+* **Integrations**: External integrations (Slack, Jira, Salesforce, etc.) are planned for future milestones and are not live in this slice.
 * **Transcription**: Live-provider verification of audio transcripts is for demonstration purposes only and is not equivalent to production compliance certification.
 * **Demo Pathway**: The stable, tested path for the public demo uses a synthetic pasted transcript to avoid live audio upload limits.
 
@@ -94,7 +94,7 @@ Conversa is built on a modern, lightweight runtime environment:
 
 ### Executing the Demo
 
-1. Enter your OpenAI API Key (BYOK model - keys are kept in memory and never stored server-side).
+1. Ensure the configured provider mode is available (`fake` for offline demo; `openai` requires server-side `OPENAI_API_KEY`).
 2. Use the **Pasted Transcript** pathway.
 3. Paste a synthetic meeting transcript (e.g., standard dialog).
 4. Run analysis and review the proposed action items, decisions, and risks.

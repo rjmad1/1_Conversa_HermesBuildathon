@@ -10,8 +10,8 @@ Conversa is an **audio-first** meeting intelligence platform designed to extract
 
 * **GitHub Repository**: `https://github.com/rjmad1/1_Conversa_HermesBuildathon`
 * **Vercel Live Application**: `https://1-conversa-hermes-buildathon.vercel.app/`
-* **Current Source Commit**: `788811f` (fix: close tenant isolation and runtime security audit findings)
-* **Buildathon Status**: Stable snapshot. Verification checks pass.
+* **Current Source Commit**: See the latest `main` commit in the repository history: <https://github.com/rjmad1/1_Conversa_HermesBuildathon/commits/main>
+* **Buildathon Status**: Experimental snapshot. Local verification checks pass.
 * **Last Updated**: July 12, 2026
 
 ---
@@ -27,7 +27,7 @@ Conversa is an **audio-first** meeting intelligence platform designed to extract
 ---
 
 ## Stable Demo Path
-Due to Vercel's serverless timeout limitations and the experimental nature of transcription wrappers, the **Pasted Transcript** pathway is the recommended, stable, and verified route for evaluating the Conversa MVP. 
+Use the **Pasted Transcript** pathway as the primary demo flow. If the public Vercel deployment is temporarily unavailable, run the same flow locally with the fake provider path.
 
 ---
 
