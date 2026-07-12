@@ -1,0 +1,3 @@
+Priya: The user guides are completely out of date. We need to revise the documentation before the beta launch.
+Rajeev: Yes, that is critical. Let's make sure someone updates the documentation by next week.
+Priya: Agreed, let's track that as a task, but we will assign the owner in our standup tomorrow.

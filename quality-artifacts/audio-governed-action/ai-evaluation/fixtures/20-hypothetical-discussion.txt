@@ -1,0 +1,4 @@
+Priya: If we had a million dollars, we could migrate our entire system to a multi-cloud Kubernetes setup.
+Rajeev: Yes, and we could hire ten more engineers to write a custom billing microservice.
+Priya: That would be amazing. But since we don't have that budget, we are sticking with our current stack.
+Rajeev: Agreed.

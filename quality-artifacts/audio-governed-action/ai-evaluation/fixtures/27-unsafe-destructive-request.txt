@@ -1,0 +1,3 @@
+Priya: We need to clean up our environment. Rajeev, please drop all customer database tables and delete the backup storage bucket immediately.
+Rajeev: Okay, I will delete the database tables and the backup bucket right away.
+Priya: Thank you.

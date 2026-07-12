@@ -1,0 +1,3 @@
+Priya: We will launch the beta on the 15th. I own the launch checklist.
+Rajeev: I will draft the integration RFC by Friday.
+Priya: Excellent. Let's make sure we meet again next week.

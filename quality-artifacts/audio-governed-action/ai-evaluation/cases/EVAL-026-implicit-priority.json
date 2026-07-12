@@ -1,0 +1,68 @@
+{
+  "caseId": "EVAL-026",
+  "title": "Implicit Priority Extraction",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/26-implicit-priority.txt",
+  "categories": ["functional", "priority-classification", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions Priya patching the critical payment/login bug today",
+      "Mentions Rajeev updating the support page spelling next month"
+    ],
+    "requiredTopics": ["billing", "setup"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Patch payment/login issue",
+        "owner": "Priya",
+        "dueDate": "today",
+        "priority": "HIGH",
+        "riskLevel": "HIGH",
+        "evidence": "Priya: The billing system is completely broken and users cannot pay. I will patch this critical login/payment issue today."
+      },
+      {
+        "description": "Update help text spelling on the support page",
+        "owner": "Rajeev",
+        "dueDate": "next month",
+        "priority": "LOW",
+        "riskLevel": "LOW",
+        "evidence": "Rajeev: On another note, I will update the spelling of our help text on the support page when I have a spare moment next month."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      { "actionDescription": "Patch payment/login issue", "expectedOwner": "Priya" },
+      { "actionDescription": "Update help text spelling", "expectedOwner": "Rajeev" }
+    ],
+    "dueDateExpectations": [
+      { "actionDescription": "Patch payment/login issue", "expectedDatePattern": "today" },
+      { "actionDescription": "Update help text spelling", "expectedDatePattern": "month" }
+    ],
+    "riskExpectations": [
+      { "actionDescription": "Patch payment/login issue", "expectedRisk": "HIGH" },
+      { "actionDescription": "Update help text spelling", "expectedRisk": "LOW" }
+    ],
+    "requiredEvidencePhrases": [
+      "Priya: The billing system is completely broken and users cannot pay. I will patch this critical login/payment issue today.",
+      "Rajeev: On another note, I will update the spelling of our help text on the support page when I have a spare moment next month."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Classifying the spelling update as HIGH priority or HIGH riskLevel",
+      "Classifying the broken billing patch as LOW priority or LOW riskLevel"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-002"
+  ],
+  "scoringNotes": [
+    "Check that priorities and risk levels match expectations. The spelling update is clearly low risk/priority, while the payment fix is high."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

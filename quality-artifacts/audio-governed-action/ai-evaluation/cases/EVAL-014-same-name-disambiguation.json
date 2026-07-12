@@ -1,0 +1,77 @@
+{
+  "caseId": "EVAL-014",
+  "title": "Speaker Disambiguation (Same Name)",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/14-multiple-people-same-name.txt",
+  "categories": ["functional", "disambiguation", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions task assignments to David Chen and David Miller separately"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Draft the infrastructure RFC",
+        "owner": "David Chen",
+        "dueDate": "Friday",
+        "priority": "HIGH",
+        "evidence": "David Chen: I will draft the infrastructure RFC by Friday."
+      },
+      {
+        "description": "Review infrastructure RFC",
+        "owner": "David Miller",
+        "dueDate": "next Monday",
+        "priority": "MEDIUM",
+        "evidence": "David Miller: Understood. I will handle the review of that RFC next Monday."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Draft the infrastructure RFC",
+        "expectedOwner": "David Chen",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Review infrastructure RFC",
+        "expectedOwner": "David Miller",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Draft the infrastructure RFC",
+        "expectedDatePattern": "Friday",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Review infrastructure RFC",
+        "expectedDatePattern": "Monday",
+        "allowNull": false
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "David Chen: I will draft the infrastructure RFC by Friday.",
+      "David Miller: Understood. I will handle the review of that RFC next Monday."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Assigning both tasks to a generic 'David'",
+      "Confusing David Chen with David Miller, or vice-versa"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that full names are preserved and mapped to the correct actions. Assigning either task to only 'David' triggers a critical failure."
+  ],
+  "assumptions": [
+    "The meeting has two participants with the first name David, disambiguated by last name."
+  ]
+}

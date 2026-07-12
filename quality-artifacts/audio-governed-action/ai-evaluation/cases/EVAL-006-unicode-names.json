@@ -1,0 +1,72 @@
+{
+  "caseId": "EVAL-006",
+  "title": "Unicode Names Preservation",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/fixtures/transcripts/06-unicode-names.txt",
+  "categories": ["functional", "unicode", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions task allocation to owners Åse, Hæge, and François"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Draft RFC",
+        "owner": "Åse",
+        "evidence": "Åse: I will draft the RFC."
+      },
+      {
+        "description": "Coordinate test runs",
+        "owner": "Hæge",
+        "evidence": "Hæge: I will coordinate the test runs."
+      },
+      {
+        "description": "Review RFC",
+        "owner": "François",
+        "evidence": "François: I will handle the review of that RFC."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Draft RFC",
+        "expectedOwner": "Åse",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Coordinate test runs",
+        "expectedOwner": "Hæge",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Review RFC",
+        "expectedOwner": "François",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Åse: I will draft the RFC.",
+      "Hæge: I will coordinate the test runs.",
+      "François: I will handle the review of that RFC."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Stripping or replacing unicode characters in names (e.g. Ase, Haege, Francois)",
+      "Unreadable encoding errors in JSON"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify unicode preservation. Mappings must exactly match character bytes."
+  ],
+  "assumptions": [
+    "None."
+  ]
+}

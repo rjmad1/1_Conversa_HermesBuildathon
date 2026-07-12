@@ -1,0 +1,20 @@
+Priya: Welcome back team. This is our project kickoff sync for the next major milestone. Let's go around the room and discuss what we need to focus on.
+Rajeev: I think we need to first look at the infrastructure requirements. We have a lot of storage challenges.
+Priya: True, we need to configure Cloudflare R2 for storing the media files securely.
+Sarah: Let's make sure the storage is completely isolated by tenant. We don't want any data leakage.
+David: Yes, I can own setting up the R2 buckets. I'll need to define the access control lists by next Wednesday.
+Priya: Excellent, David. David owns the R2 bucket provisioning and ACL definition, due by next Wednesday.
+Rajeev: For transcription, we are going to use the OpenAI Whisper API. We need a reliable backup.
+Sarah: I can write the fallback/retry wrapper for the transcription provider. We should have it ready by Friday.
+Priya: Great, Sarah. Sarah will draft the transcription retry logic by Friday.
+David: What about the analysis phase? Are we using GPT-4?
+Rajeev: Yes, we need to extract summary, topics, decisions, and proposed actions.
+Priya: And the human-in-the-loop validation is critical. We need to persist approval decisions.
+David: I will construct the D1 database tables for action items and approvals. I can do that by next Friday.
+Priya: Good, David owns the D1 schema implementation for actions and approvals, due by next Friday.
+Sarah: We also need to test everything with Vitest.
+Rajeev: I'll set up the integration tests for the full audio-to-action pipeline. I will finish it by next Monday.
+Priya: Perfect, Rajeev owns the Vitest integration tests setup, due next Monday.
+David: Let's double check if we have any other dependencies.
+Sarah: No other dependencies. We should focus on clean architecture.
+Priya: Sounds good. Let's meet again tomorrow. Thank you team!

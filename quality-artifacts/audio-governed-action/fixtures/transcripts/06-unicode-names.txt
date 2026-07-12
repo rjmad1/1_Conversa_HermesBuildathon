@@ -1,0 +1,4 @@
+Åse: I will draft the integration RFC by Friday.
+Björn: Perfect. Hæge will coordinate the test runs.
+Åse: Great. Let's make sure we review this with François.
+François: I agree to review it.

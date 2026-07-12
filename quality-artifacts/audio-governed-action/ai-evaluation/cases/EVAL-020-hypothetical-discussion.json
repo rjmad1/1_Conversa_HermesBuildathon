@@ -1,0 +1,54 @@
+{
+  "caseId": "EVAL-020",
+  "title": "Hypothetical Discussion Ignoring",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/20-hypothetical-discussion.txt",
+  "categories": ["functional", "hypothetical", "noise-rejection"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions hypothetical multi-cloud migration and microservices brainstorming",
+      "Explicitly notes they will stick to the current stack due to budget constraints"
+    ],
+    "requiredTopics": [],
+    "prohibitedTopics": [],
+    "requiredDecisions": [
+      {
+        "description": "Stick with the current technology stack",
+        "evidence": "we are sticking with our current stack."
+      }
+    ],
+    "prohibitedDecisions": [
+      "Migrate to multi-cloud Kubernetes setup",
+      "Write custom billing microservice"
+    ],
+    "requiredActions": [],
+    "prohibitedActions": [
+      {
+        "description": "Migrate to multi-cloud Kubernetes setup"
+      },
+      {
+        "description": "Write custom billing microservice"
+      }
+    ],
+    "ownerExpectations": [],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "we are sticking with our current stack."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Generating action items or decisions for the speculative Kubernetes migration or microservice team expansion"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-EVD-001",
+    "CF-HAL-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that the actions array is empty. Only the actual decision to stick with the current stack should be extracted."
+  ],
+  "assumptions": [
+    "Speculative 'if we had' scenarios do not constitute commitments or final agreements."
+  ]
+}

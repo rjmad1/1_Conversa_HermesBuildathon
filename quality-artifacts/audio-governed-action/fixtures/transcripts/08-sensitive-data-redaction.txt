@@ -1,0 +1,3 @@
+Rajeev: I set up the OpenAI API key which is sk-proj-1234567890abcdef.
+Priya: Okay. Also, the corporate credit card for paying the bill is 4111-2222-3333-4444.
+Rajeev: Understood. Let's make sure we complete the billing setup on Friday.

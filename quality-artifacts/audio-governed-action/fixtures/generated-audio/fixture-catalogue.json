@@ -1,0 +1,676 @@
+[
+  {
+    "fixtureId": "clean-standard-mp3",
+    "fileName": "clean-standard.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/clean-standard.mp3",
+    "format": "MP3",
+    "mimeType": "audio/mpeg",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 15.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 1,
+    "sha256": "",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Standard clean upload",
+      "MP3 compatibility ingestion"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully",
+    "generationMethod": "MP3 Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "clean-standard-wav",
+    "fileName": "clean-standard.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/clean-standard.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.141,
+    "sizeBytes": 623670,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "cfa42067251088ddba867b012f7ea875e82df770ecf5d192adac945edab071e1",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Standard clean upload",
+      "WAV compatibility ingestion"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully",
+    "generationMethod": "PowerShell SAPI TTS (Zira/David alternating)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "clean-standard-m4a",
+    "fileName": "clean-standard.m4a",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/clean-standard.m4a",
+    "format": "M4A",
+    "mimeType": "audio/mp4",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 15.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 1,
+    "sha256": "",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Standard clean upload",
+      "M4A compatibility ingestion"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully",
+    "generationMethod": "M4A Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "silence-30s-mp3",
+    "fileName": "silence-30s.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/silence-30s.mp3",
+    "format": "MP3",
+    "mimeType": "audio/mpeg",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 30.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 2,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Empty speech upload"
+    ],
+    "expectedOutcome": "201 Created on ingestion, empty transcript downstream",
+    "generationMethod": "MP3 Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "noisy-background-mp3",
+    "fileName": "noisy-background.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/noisy-background.mp3",
+    "format": "MP3",
+    "mimeType": "audio/mpeg",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 20.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 1,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Low signal-to-noise ratio resilience"
+    ],
+    "expectedOutcome": "201 Created, transcription succeeds despite noise",
+    "generationMethod": "MP3 Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "overlapping-speakers",
+    "fileName": "overlapping-speakers.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/overlapping-speakers.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.619,
+    "sizeBytes": 247832,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "f06b892abeaee3467e5b4b1ec19e296f2f45e3c02e88f334b23a23719ce41957",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Speaker overlap and diarization complexity"
+    ],
+    "expectedOutcome": "201 Created, segments created with speakers split or null",
+    "generationMethod": "Overlapping PCM samples mixed in Python",
+    "limitations": []
+  },
+  {
+    "fixtureId": "corrupt-header-mp3",
+    "fileName": "corrupt-header.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/corrupt-header.mp3",
+    "format": "MP3",
+    "mimeType": "audio/mpeg",
+    "validMedia": false,
+    "intentionallyMalformed": true,
+    "durationSeconds": null,
+    "sizeBytes": 0,
+    "sampleRateHz": null,
+    "channels": null,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Damaged container / codec parsing check"
+    ],
+    "expectedOutcome": "400 Bad Request with VALIDATION_ERROR or MALFORMED_AUDIO code",
+    "generationMethod": "Hex edited headers",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "wrong-extension",
+    "fileName": "wrong-extension.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/wrong-extension.mp3",
+    "format": "MP3",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 1.934,
+    "sizeBytes": 85346,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "14e8d04aa5e6d5c6060055b67d2803d41dc9c989693eff5d4259a17a26217e16",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Extension/MIME consistency boundary check"
+    ],
+    "expectedOutcome": "400 Bad Request with MIME_EXTENSION_MISMATCH code",
+    "generationMethod": "Synthetic SAPI WAV file saved as .mp3",
+    "limitations": []
+  },
+  {
+    "fixtureId": "oversized-file-mp3",
+    "fileName": "oversized-file.mp3",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/oversized-file.mp3",
+    "format": "MP3",
+    "mimeType": "audio/mpeg",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 7200.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 2,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Configurable file size limit boundary"
+    ],
+    "expectedOutcome": "400 Bad Request with FILE_TOO_LARGE or VALIDATION_ERROR code",
+    "generationMethod": "MP3 Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "excessive-duration-m4a",
+    "fileName": "excessive-duration.m4a",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/excessive-duration.m4a",
+    "format": "M4A",
+    "mimeType": "audio/mp4",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 7500.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Duration limit check (limit 2 hours)"
+    ],
+    "expectedOutcome": "400 Bad Request with DURATION_EXCEEDED or VALIDATION_ERROR code",
+    "generationMethod": "M4A Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "unsupported-video-mp4",
+    "fileName": "unsupported-video.mp4",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/unsupported-video.mp4",
+    "format": "MP4",
+    "mimeType": "video/mp4",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 0,
+    "sampleRateHz": 44100,
+    "channels": 2,
+    "sha256": "",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Unsupported media block check"
+    ],
+    "expectedOutcome": "415 Unsupported Media Type with UNSUPPORTED_MEDIA_TYPE error code",
+    "generationMethod": "MP4 Video Encoder",
+    "limitations": [
+      "BLOCKED - ffmpeg/conversion tools unavailable"
+    ]
+  },
+  {
+    "fixtureId": "clean-actions",
+    "fileName": "clean-actions.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/clean-actions.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.141,
+    "sizeBytes": 623670,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "cfa42067251088ddba867b012f7ea875e82df770ecf5d192adac945edab071e1",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Standard clean upload with actions"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully",
+    "generationMethod": "PowerShell SAPI TTS (Zira/David alternating)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "missing-owner-date",
+    "fileName": "missing-owner-date.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/missing-owner-date.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.871,
+    "sizeBytes": 655864,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "48066b8a3f967a1629fdbb2540bd7dd46433b04ea83324d260221cc8498bcd17",
+    "sourceTranscript": "02-missing-owners-and-dates.txt",
+    "testPurpose": [
+      "Actions with missing metadata (owners/dates)"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully with null owner/date fields",
+    "generationMethod": "PowerShell SAPI TTS (David voice)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "no-actions",
+    "fileName": "no-actions.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/no-actions.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 15.126,
+    "sizeBytes": 667114,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "cada53929eda33715bf2ceff6bf17c96f7368d56cbded1437fbd10310a7cbc12",
+    "sourceTranscript": "03-no-actions.txt",
+    "testPurpose": [
+      "Audio with zero action items"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully with empty actions array",
+    "generationMethod": "PowerShell SAPI TTS (Zira/David alternating)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "ambiguous-commitments",
+    "fileName": "ambiguous-commitments.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/ambiguous-commitments.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 19.21,
+    "sizeBytes": 847218,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "93cd933b01f7110182689fe5ac9d99c7cb2176d958a0f2ece9c11899839f0d58",
+    "sourceTranscript": "10-ambiguous-commitments.txt",
+    "testPurpose": [
+      "Non-committal brainstorming check"
+    ],
+    "expectedOutcome": "201 Created, status STORED, transcribes successfully with empty actions array",
+    "generationMethod": "PowerShell SAPI TTS (Zira/David alternating)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "high-risk-action",
+    "fileName": "high-risk-action.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/high-risk-action.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 18.465,
+    "sizeBytes": 814366,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "d106910c1f191532b77e6de89559cdca904b4189fdfb7bd43ef043412b018a3d",
+    "sourceTranscript": "12-high-risk-action.txt",
+    "testPurpose": [
+      "Database purge and credential migration check"
+    ],
+    "expectedOutcome": "201 Created, transcribes successfully, flags high-risk actions",
+    "generationMethod": "PowerShell SAPI TTS (Zira/David alternating)",
+    "limitations": []
+  },
+  {
+    "fixtureId": "silence-5s",
+    "fileName": "silence-5s.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/silence-5s.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 220544,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "d2ac3a234e3314659ef06a7421b34f7fa11aa19f5cce780cce8b028870cd71f8",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "5 seconds of silence check"
+    ],
+    "expectedOutcome": "201 Created, empty transcript downstream",
+    "generationMethod": "Writing zero bytes in PCM format",
+    "limitations": []
+  },
+  {
+    "fixtureId": "silence-30s",
+    "fileName": "silence-30s.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/silence-30s.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 30.0,
+    "sizeBytes": 1323044,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "3c48c7295a0ada81046f72f7807fb3d6206dbe12035d38114e884f715ea31c3d",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "30 seconds of silence check"
+    ],
+    "expectedOutcome": "201 Created, empty transcript downstream",
+    "generationMethod": "Writing zero bytes in PCM format",
+    "limitations": []
+  },
+  {
+    "fixtureId": "near-silence",
+    "fileName": "near-silence.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/near-silence.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 220544,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "49a06462618c905ebb0fc2309ac61c33aa8be2d543900ff431ae9bbb5567ff54",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Extremely low amplitude audio check"
+    ],
+    "expectedOutcome": "201 Created, empty transcript downstream",
+    "generationMethod": "Random PCM samples in [-1, 1] range",
+    "limitations": []
+  },
+  {
+    "fixtureId": "low-volume-speech",
+    "fileName": "low-volume-speech.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/low-volume-speech.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.141,
+    "sizeBytes": 623670,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "1c5edcb67d65902201468abdb9a0d828e9ab8360d1f57cb9fa72e2239ceb21ab",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Speech generated at low volume"
+    ],
+    "expectedOutcome": "201 Created, transcription succeeds",
+    "generationMethod": "PowerShell SAPI TTS at 5% volume",
+    "limitations": []
+  },
+  {
+    "fixtureId": "clipped-audio",
+    "fileName": "clipped-audio.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/clipped-audio.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.141,
+    "sizeBytes": 623670,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "8bc77e313c5c0e9ab9cbbf04539b5ac16a511967d4affcf8963a768529a30e99",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Severely clipped audio check"
+    ],
+    "expectedOutcome": "201 Created, transcription succeeds",
+    "generationMethod": "Amplifying clean-actions.wav by 15x and clipping to 16-bit range",
+    "limitations": []
+  },
+  {
+    "fixtureId": "background-noise",
+    "fileName": "background-noise.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/background-noise.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 4.474,
+    "sizeBytes": 197340,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "0a331c8344c30263be71eb914a94b841cd26870cc38f99d38ff6905103cf7e9e",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Low signal-to-noise ratio check"
+    ],
+    "expectedOutcome": "201 Created, transcription succeeds",
+    "generationMethod": "SAPI TTS mixed with deterministic white noise",
+    "limitations": []
+  },
+  {
+    "fixtureId": "truncated-header",
+    "fileName": "truncated-header.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/truncated-header.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": false,
+    "intentionallyMalformed": true,
+    "durationSeconds": null,
+    "sizeBytes": 20,
+    "sampleRateHz": null,
+    "channels": null,
+    "sha256": "6bf89039d55519ecaf623f1effc1707d874ead5a91abbd3d3ed96f4baad5317a",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Intentionally truncated WAV header check"
+    ],
+    "expectedOutcome": "400 Bad Request with MALFORMED_AUDIO code",
+    "generationMethod": "Truncating WAV file to first 20 bytes",
+    "limitations": []
+  },
+  {
+    "fixtureId": "empty-audio",
+    "fileName": "empty-audio.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/empty-audio.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": false,
+    "intentionallyMalformed": true,
+    "durationSeconds": null,
+    "sizeBytes": 0,
+    "sampleRateHz": null,
+    "channels": null,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Zero-byte file upload check"
+    ],
+    "expectedOutcome": "400 Bad Request with EMPTY_AUDIO_FILE code",
+    "generationMethod": "Empty file creation",
+    "limitations": []
+  },
+  {
+    "fixtureId": "random-bytes",
+    "fileName": "random-bytes.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/random-bytes.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": false,
+    "intentionallyMalformed": true,
+    "durationSeconds": null,
+    "sizeBytes": 10240,
+    "sampleRateHz": null,
+    "channels": null,
+    "sha256": "489d72e3286cabcf069c4f533275808546c18dff9d92a9ce7a17dad1f029e7f3",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Deterministic non-audio random bytes check"
+    ],
+    "expectedOutcome": "400 Bad Request with MALFORMED_AUDIO code",
+    "generationMethod": "10 KB of deterministic random bytes",
+    "limitations": []
+  },
+  {
+    "fixtureId": "duplicate-clean-actions",
+    "fileName": "duplicate-clean-actions.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/duplicate-clean-actions.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 14.141,
+    "sizeBytes": 623670,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "cfa42067251088ddba867b012f7ea875e82df770ecf5d192adac945edab071e1",
+    "sourceTranscript": "01-clear-actions.txt",
+    "testPurpose": [
+      "Exact duplicate file upload check"
+    ],
+    "expectedOutcome": "Ingestion block or duplicate detection downstream",
+    "generationMethod": "Byte-for-byte copy of clean-actions.wav",
+    "limitations": []
+  },
+  {
+    "fixtureId": "two-speakers-sequential",
+    "fileName": "two-speakers-sequential.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/two-speakers-sequential.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 8.258,
+    "sizeBytes": 364212,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "e10e7a76fb8e82ce4e3d679f0f316634af803d1252a27e36e86008cbcc349d12",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Two sequential speakers with distinct voices check"
+    ],
+    "expectedOutcome": "201 Created, distinct segments created per speaker",
+    "generationMethod": "PowerShell SAPI (David then Zira) concatenated with silence",
+    "limitations": []
+  },
+  {
+    "fixtureId": "two-speakers-overlap",
+    "fileName": "two-speakers-overlap.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/two-speakers-overlap.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.619,
+    "sizeBytes": 247832,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "f06b892abeaee3467e5b4b1ec19e296f2f45e3c02e88f334b23a23719ce41957",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Two speakers overlapping in audio check"
+    ],
+    "expectedOutcome": "201 Created, diarization splits segments",
+    "generationMethod": "Mixing David and Zira PCM samples with a 1.5s offset",
+    "limitations": []
+  },
+  {
+    "fixtureId": "duration-under-limit",
+    "fileName": "duration-under-limit.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/duration-under-limit.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 220544,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "d2ac3a234e3314659ef06a7421b34f7fa11aa19f5cce780cce8b028870cd71f8",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Duration under limit check"
+    ],
+    "expectedOutcome": "201 Created",
+    "generationMethod": "Writing 5 seconds of silence",
+    "limitations": []
+  },
+  {
+    "fixtureId": "duration-at-limit",
+    "fileName": "duration-at-limit.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/duration-at-limit.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 220544,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "d2ac3a234e3314659ef06a7421b34f7fa11aa19f5cce780cce8b028870cd71f8",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Duration at the limit check"
+    ],
+    "expectedOutcome": "201 Created or 400 Bad Request with DURATION_EXCEEDED",
+    "generationMethod": "Writing 5 seconds of silence",
+    "limitations": [
+      "REPRESENTATIVE - full 2-hour file deferred to prevent oversized repository size"
+    ]
+  },
+  {
+    "fixtureId": "duration-over-limit",
+    "fileName": "duration-over-limit.wav",
+    "relativePath": "quality-artifacts/audio-governed-action/fixtures/generated-audio/duration-over-limit.wav",
+    "format": "WAV",
+    "mimeType": "audio/wav",
+    "validMedia": true,
+    "intentionallyMalformed": false,
+    "durationSeconds": 5.0,
+    "sizeBytes": 220544,
+    "sampleRateHz": 22050,
+    "channels": 1,
+    "sha256": "d2ac3a234e3314659ef06a7421b34f7fa11aa19f5cce780cce8b028870cd71f8",
+    "sourceTranscript": null,
+    "testPurpose": [
+      "Duration over the limit check"
+    ],
+    "expectedOutcome": "400 Bad Request with DURATION_EXCEEDED code",
+    "generationMethod": "Writing 5 seconds of silence",
+    "limitations": [
+      "REPRESENTATIVE - full 2-hour-plus file deferred to prevent oversized repository size"
+    ]
+  }
+]

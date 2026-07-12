@@ -1,0 +1,59 @@
+{
+  "caseId": "EVAL-023",
+  "title": "Contradictory Due Dates Resolution",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/23-contradictory-due-dates.txt",
+  "categories": ["functional", "relative-dates", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions planning launch notes and Rajeev's commitment to draft them",
+      "Notes that the deadline remains unresolved and will be decided tomorrow"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [
+      {
+        "description": "Draft launch notes",
+        "owner": "Rajeev",
+        "dueDate": null,
+        "priority": "MEDIUM",
+        "evidence": "Rajeev: Understood. I will draft the notes today anyway."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Draft launch notes",
+        "expectedOwner": "Rajeev",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Draft launch notes",
+        "expectedDatePattern": null,
+        "allowNull": true
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "Rajeev: Understood. I will draft the notes today anyway."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Forcing a due date (e.g. Oct 20th or Oct 25th) when the team explicitly deferred the deadline decision"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-002",
+    "CF-CON-001",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that dueDate is null because the deadline discussion was left unresolved and explicitly deferred."
+  ],
+  "assumptions": [
+    "If participants propose conflicting deadlines and explicitly agree to decide later, the deadline is unresolved and must remain null."
+  ]
+}

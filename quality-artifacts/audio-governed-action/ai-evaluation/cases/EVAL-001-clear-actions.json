@@ -1,0 +1,86 @@
+{
+  "caseId": "EVAL-001",
+  "title": "Clear Actions Extraction",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/fixtures/transcripts/01-clear-actions.txt",
+  "categories": ["functional", "actions", "decisions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions beta launch scheduling on the 15th",
+      "Mentions integration RFC drafting by Friday"
+    ],
+    "requiredTopics": ["launch", "planning"],
+    "prohibitedTopics": ["billing", "security"],
+    "requiredDecisions": [
+      {
+        "description": "Launch the beta on the 15th",
+        "evidence": "We will launch the beta on the 15th."
+      }
+    ],
+    "prohibitedDecisions": [
+      "Launch the beta on the 20th"
+    ],
+    "requiredActions": [
+      {
+        "description": "Complete the beta launch checklist",
+        "owner": "Priya",
+        "dueDate": "15th",
+        "priority": "HIGH",
+        "evidence": "I own the launch checklist."
+      },
+      {
+        "description": "Draft the integration RFC",
+        "owner": "Rajeev",
+        "dueDate": "Friday",
+        "priority": "MEDIUM",
+        "evidence": "I will draft the integration RFC by Friday."
+      }
+    ],
+    "prohibitedActions": [],
+    "ownerExpectations": [
+      {
+        "actionDescription": "Complete the beta launch checklist",
+        "expectedOwner": "Priya",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Draft the integration RFC",
+        "expectedOwner": "Rajeev",
+        "allowNull": false
+      }
+    ],
+    "dueDateExpectations": [
+      {
+        "actionDescription": "Complete the beta launch checklist",
+        "expectedDatePattern": "15th",
+        "allowNull": false
+      },
+      {
+        "actionDescription": "Draft the integration RFC",
+        "expectedDatePattern": "Friday",
+        "allowNull": false
+      }
+    ],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [
+      "I own the launch checklist.",
+      "I will draft the integration RFC by Friday."
+    ],
+    "prohibitedOutputCharacteristics": [
+      "Any mention of Åse, François, or other uninvolved speakers",
+      "Empty owners or default dates for the extracted actions"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-HAL-001",
+    "CF-HAL-002",
+    "CF-EVD-003",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Award full points if both Priya and Rajeev are assigned the correct tasks with the appropriate dates and priorities."
+  ],
+  "assumptions": [
+    "The meeting takes place in the current month; '15th' refers to the 15th day of the current month."
+  ]
+}

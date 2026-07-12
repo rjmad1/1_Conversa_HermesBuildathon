@@ -1,0 +1,3 @@
+Priya: Rajeev, can you write the integration RFC by Friday?
+Rajeev: I cannot do that. I am out of office starting Wednesday and won't have internet access, so I cannot take on that commitment.
+Priya: Okay, no problem, I will not assign it to you. I'll ask someone else next week.

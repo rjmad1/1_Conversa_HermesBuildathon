@@ -1,0 +1,39 @@
+{
+  "caseId": "EVAL-019",
+  "title": "Negated Commitment Rejection",
+  "sourceTranscript": "quality-artifacts/audio-governed-action/ai-evaluation/fixtures/19-negated-commitment.txt",
+  "categories": ["functional", "negated-commitments", "actions"],
+  "priority": "P0",
+  "expected": {
+    "summaryCharacteristics": [
+      "Mentions request for RFC drafting and Rajeev's inability to take it on due to being out of office"
+    ],
+    "requiredTopics": ["planning"],
+    "prohibitedTopics": [],
+    "requiredDecisions": [],
+    "prohibitedDecisions": [],
+    "requiredActions": [],
+    "prohibitedActions": [
+      {
+        "description": "Write the integration RFC"
+      }
+    ],
+    "ownerExpectations": [],
+    "dueDateExpectations": [],
+    "riskExpectations": [],
+    "requiredEvidencePhrases": [],
+    "prohibitedOutputCharacteristics": [
+      "Assigning the RFC drafting to Rajeev despite his explicit refusal"
+    ]
+  },
+  "criticalFailureChecks": [
+    "CF-EVD-001",
+    "CF-STR-001"
+  ],
+  "scoringNotes": [
+    "Verify that the actions array is empty. Refused assignments must not be generated as actions."
+  ],
+  "assumptions": [
+    "Tasks that are explicitly declined by the proposed owner must not be generated."
+  ]
+}
