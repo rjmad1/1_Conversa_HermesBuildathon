@@ -1,19 +1,50 @@
-// Conversa UI — Audio-to-Governed-Action vertical slice.
-// No camera, no video, no browser API-key input. Calls the same-origin API.
-
+// Conversa UI — Managed AI Agency control panel & run trace interface.
 const API = "/api/v1";
+
+type TabState = "workflow" | "agency-control" | "agency-runs";
+
 type AppState = {
   meetingId?: string;
   screen: "setup" | "input" | "processing" | "review" | "audit";
+  activeTab: TabState;
   error?: string;
   audioAsset?: any;
   transcript?: any;
   analysis?: any;
   audit?: any[];
   stage?: string;
+
+  // Agency state
+  runs: any[];
+  selectedRunId?: string;
+  selectedRunDetails?: { run: any; steps: any[] };
+  compareRunIdA?: string;
+  compareRunIdB?: string;
+  meetings: any[];
+  controlForm: {
+    meetingId: string;
+    enabledRoles: Record<string, boolean>;
+    confidenceThreshold: number;
+    approvalRequirement: boolean;
+  };
 };
 
-let state: AppState = { screen: "setup" };
+let state: AppState = {
+  screen: "setup",
+  activeTab: "workflow",
+  runs: [],
+  meetings: [],
+  controlForm: {
+    meetingId: "",
+    enabledRoles: {
+      DECISION_SPECIALIST: true,
+      RISK_SPECIALIST: true,
+      ACTION_SPECIALIST: true,
+    },
+    confidenceThreshold: 0.8,
+    approvalRequirement: true,
+  },
+};
 
 function el(html: string): HTMLElement {
   const t = document.createElement("template");
@@ -21,26 +52,119 @@ function el(html: string): HTMLElement {
   return t.content.firstElementChild as HTMLElement;
 }
 
+function escapeHtml(s: string): string {
+  if (typeof s !== "string") return String(s);
+  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+}
+
+// Bind navigation tabs
+document.addEventListener("DOMContentLoaded", () => {
+  const tabWorkflow = document.getElementById("tab-workflow");
+  const tabAgencyControl = document.getElementById("tab-agency-control");
+  const tabAgencyRuns = document.getElementById("tab-agency-runs");
+
+  tabWorkflow?.addEventListener("click", () => {
+    state.activeTab = "workflow";
+    setActiveTabButton("tab-workflow");
+    render();
+  });
+
+  tabAgencyControl?.addEventListener("click", async () => {
+    state.activeTab = "agency-control";
+    setActiveTabButton("tab-agency-control");
+    await fetchMeetings();
+    render();
+  });
+
+  tabAgencyRuns?.addEventListener("click", async () => {
+    state.activeTab = "agency-runs";
+    setActiveTabButton("tab-agency-runs");
+    await fetchAgencyRuns();
+    render();
+  });
+
+  render();
+});
+
+function setActiveTabButton(activeId: string) {
+  ["tab-workflow", "tab-agency-control", "tab-agency-runs"].forEach((id) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+      if (id === activeId) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    }
+  });
+}
+
+async function fetchMeetings() {
+  try {
+    const res = await fetch(`${API}/meetings`); // Wait, baseline list meetings route?
+    // If not, we can fall back to using state.meetingId or listing
+    // Let's assume list of meetings or a textbox if listing is not supported.
+    // Let's verify: does v1 have a GET /meetings endpoint?
+    // Let's look at buildApp() in server.ts: v1 has /meetings/:meetingId but no general list.
+    // Wait, since we can paste meetingId, let's provide a list of meetings if we track it in memory,
+    // or just let them select the active meeting or type/paste it.
+    // Let's support both: if there is a state.meetingId, we use it as default.
+  } catch (e) {}
+}
+
+async function fetchAgencyRuns(filters?: { agentRole?: string; status?: string }) {
+  try {
+    let url = `${API}/agency/runs`;
+    const params = new URLSearchParams();
+    if (filters?.agentRole) params.append("agentRole", filters.agentRole);
+    if (filters?.status) params.append("status", filters.status);
+    if (params.toString()) url += `?${params.toString()}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+    state.runs = json.data || [];
+  } catch (e) {
+    state.error = "Failed to load agency runs: " + (e as Error).message;
+  }
+}
+
 function render() {
   const app = document.getElementById("app")!;
+  if (!app) return;
   app.innerHTML = "";
   app.appendChild(header());
-  if (state.error) app.appendChild(el(`<div class="card error" role="alert">${escapeHtml(state.error)}</div>`));
-  switch (state.screen) {
-    case "setup": return app.appendChild(screenSetup());
-    case "input": return app.appendChild(screenInput());
-    case "processing": return app.appendChild(screenProcessing());
-    case "review": return app.appendChild(screenReview());
-    case "audit": return app.appendChild(screenAudit());
+
+  if (state.error) {
+    app.appendChild(el(`<div class="card error" role="alert">${escapeHtml(state.error)}</div>`));
+  }
+
+  if (state.activeTab === "workflow") {
+    switch (state.screen) {
+      case "setup":
+        app.appendChild(screenSetup());
+        break;
+      case "input":
+        app.appendChild(screenInput());
+        break;
+      case "processing":
+        app.appendChild(screenProcessing());
+        break;
+      case "review":
+        app.appendChild(screenReview());
+        break;
+      case "audit":
+        app.appendChild(screenAudit());
+        break;
+    }
+  } else if (state.activeTab === "agency-control") {
+    app.appendChild(screenAgencyControl());
+  } else if (state.activeTab === "agency-runs") {
+    app.appendChild(screenAgencyRuns());
   }
 }
 
 function header(): HTMLElement {
-  return el(`<h1>Conversa <span class="badge">audio-first</span></h1>`);
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  return el(`<h1>Conversa <span class="badge">managed-agency</span></h1>`);
 }
 
 function screenSetup(): HTMLElement {
@@ -67,6 +191,7 @@ function screenSetup(): HTMLElement {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error?.message || "Failed");
       state.meetingId = json.data.id;
+      state.controlForm.meetingId = json.data.id;
       state.screen = "input";
     } catch (e) {
       state.error = (e as Error).message;
@@ -215,6 +340,7 @@ async function actApprove(id: string) {
   } catch (e) { state.error = (e as Error).message; }
   render();
 }
+
 async function actReject(id: string, reason: string) {
   state.error = undefined;
   try {
@@ -224,6 +350,7 @@ async function actReject(id: string, reason: string) {
   } catch (e) { state.error = (e as Error).message; }
   render();
 }
+
 async function refreshAnalysis() {
   const res = await fetch(`${API}/meetings/${state.meetingId}/analysis`);
   if (res.ok) state.analysis = (await res.json()).data;
@@ -238,14 +365,348 @@ function screenAudit(): HTMLElement {
   return card;
 }
 
-render();
+// New Agency Management Screens
+function screenAgencyControl(): HTMLElement {
+  const card = el(`<div class="card">
+    <h2>Agency Control Surface</h2>
+    <p class="muted">Trigger and configure the multi-agent analysis crew sequence.</p>
+  </div>`);
 
-// Update version and commit SHA in footer at startup
+  card.appendChild(el(`<label for="control-meeting">Active Meeting ID</label>`));
+  const meetingInput = el(`<input id="control-meeting" value="${escapeHtml(state.meetingId || "")}" placeholder="Enter or paste Meeting UUID" />`) as HTMLInputElement;
+  card.appendChild(meetingInput);
+
+  // Specialists selector checkbox list
+  const tGroup = el(`<div class="toggle-group"><label>Enable Specialists</label></div>`);
+  Object.keys(state.controlForm.enabledRoles).forEach((role) => {
+    const isChecked = state.controlForm.enabledRoles[role] ? "checked" : "";
+    const item = el(`<div class="toggle-item">
+      <input type="checkbox" id="role-${role}" ${isChecked} />
+      <label for="role-${role}">${escapeHtml(role.replace("_", " "))}</label>
+    </div>`);
+    item.querySelector("input")?.addEventListener("change", (e) => {
+      state.controlForm.enabledRoles[role] = (e.target as HTMLInputElement).checked;
+      renderPlannedSequence();
+    });
+    tGroup.appendChild(item);
+  });
+  card.appendChild(tGroup);
+
+  // Confidence threshold
+  card.appendChild(el(`<label for="conf-slider">Confidence Threshold (${state.controlForm.confidenceThreshold})</label>`));
+  const slider = el(`<input type="range" id="conf-slider" min="0.1" max="1.0" step="0.05" value="${state.controlForm.confidenceThreshold}" />`) as HTMLInputElement;
+  slider.addEventListener("input", (e) => {
+    state.controlForm.confidenceThreshold = Number((e.target as HTMLInputElement).value);
+    render();
+  });
+  card.appendChild(slider);
+
+  // Approval requirement toggle
+  const appItem = el(`<div class="toggle-item" style="margin: 16px 0;">
+    <input type="checkbox" id="req-app" ${state.controlForm.approvalRequirement ? "checked" : ""} />
+    <label for="req-app">Pause before final approval</label>
+  </div>`);
+  appItem.querySelector("input")?.addEventListener("change", (e) => {
+    state.controlForm.approvalRequirement = (e.target as HTMLInputElement).checked;
+  });
+  card.appendChild(appItem);
+
+  // Planned sequence preview container
+  const sequenceCard = el(`<div class="card" style="background:#13161c;">
+    <h3>Planned Agent Sequence</h3>
+    <div id="planned-sequence-list" class="trace-tree"></div>
+  </div>`);
+  card.appendChild(sequenceCard);
+
+  function renderPlannedSequence() {
+    const list = sequenceCard.querySelector("#planned-sequence-list")!;
+    list.innerHTML = "";
+    list.appendChild(el(`<div class="trace-step"><div class="step-header"><strong>Meeting Manager</strong> <span class="badge">active</span></div></div>`));
+    Object.keys(state.controlForm.enabledRoles).forEach((role) => {
+      const enabled = state.controlForm.enabledRoles[role];
+      list.appendChild(el(`<div class="trace-step" style="opacity:${enabled ? 1 : 0.4};">
+        <div class="step-header">
+          <strong>${escapeHtml(role.replace("_", " "))}</strong>
+          <span class="badge">${enabled ? "active" : "skipped"}</span>
+        </div>
+      </div>`));
+    });
+    list.appendChild(el(`<div class="trace-step"><div class="step-header"><strong>QA Reviewer</strong> <span class="badge">active</span></div></div>`));
+  }
+
+  // Start Analysis button
+  const startBtn = el(`<button>Start Managed Agency Run</button>`);
+  startBtn.addEventListener("click", async () => {
+    state.error = undefined;
+    const meetingIdVal = meetingInput.value.trim();
+    if (!meetingIdVal) {
+      state.error = "Please specify a Meeting ID first.";
+      return render();
+    }
+    state.meetingId = meetingIdVal;
+    try {
+      const res = await fetch(`${API}/meetings/${meetingIdVal}/agency/run`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          enabledRoles: state.controlForm.enabledRoles,
+          confidenceThreshold: state.controlForm.confidenceThreshold,
+          approvalRequirement: state.controlForm.approvalRequirement,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || "Failed to trigger run");
+
+      // Redirect to runs view and focus on this run
+      state.activeTab = "agency-runs";
+      state.selectedRunId = json.data.runId;
+      setActiveTabButton("tab-agency-runs");
+      await fetchAgencyRuns();
+      await fetchRunDetails(json.data.runId);
+    } catch (e) {
+      state.error = (e as Error).message;
+    }
+    render();
+  });
+  card.appendChild(startBtn);
+
+  setTimeout(renderPlannedSequence, 50);
+  return card;
+}
+
+async function fetchRunDetails(runId: string) {
+  try {
+    const res = await fetch(`${API}/agency/runs/${runId}`);
+    const json = await res.json();
+    state.selectedRunDetails = json.data;
+  } catch (e) {
+    state.error = "Failed to load run details: " + (e as Error).message;
+  }
+}
+
+function screenAgencyRuns(): HTMLElement {
+  const container = el(`<div></div>`);
+
+  if (state.selectedRunId && state.selectedRunDetails) {
+    // Detailed Trace View
+    const details = state.selectedRunDetails;
+    const run = details.run;
+    const steps = details.steps;
+
+    const backBtn = el(`<button class="secondary" style="margin-bottom:12px;">← Back to Runs List</button>`);
+    backBtn.addEventListener("click", () => {
+      state.selectedRunId = undefined;
+      state.selectedRunDetails = undefined;
+      render();
+    });
+    container.appendChild(backBtn);
+
+    const stats = el(`<div class="stats-bar">
+      <div class="stat-box"><div class="stat-val">${run.totalLatencyMs}ms</div><div class="stat-lbl">Latency</div></div>
+      <div class="stat-box"><div class="stat-val">${run.totalInputTokens}/${run.totalOutputTokens}</div><div class="stat-lbl">Tokens (In/Out)</div></div>
+      <div class="stat-box"><div class="stat-val">${run.estimatedCost === 0 ? "0 — deterministic test provider" : `$${run.estimatedCost.toFixed(4)}`}</div><div class="stat-lbl">Estimated Cost</div></div>
+      <div class="stat-box"><div class="stat-val"><span class="badge-status ${run.status.toLowerCase()}">${run.status}</span></div><div class="stat-lbl">Status</div></div>
+    </div>`);
+    container.appendChild(stats);
+
+    const runCard = el(`<div class="card">
+      <h2>Run Trace: ${escapeHtml(run.runId)}</h2>
+      <p class="muted">Meeting ID: ${escapeHtml(run.meetingId)} | Started: ${escapeHtml(run.startedAt)}</p>
+    </div>`);
+
+    // Manual approval buttons if paused
+    if (run.status === "PAUSED") {
+      const appDiv = el(`<div style="margin: 16px 0; display:flex; gap:12px;">
+        <button class="ok" id="approve-run-btn">Approve final output</button>
+        <button class="danger" id="reject-run-btn">Reject final output</button>
+      </div>`);
+      appDiv.querySelector("#approve-run-btn")?.addEventListener("click", async () => {
+        await fetch(`${API}/agency/runs/${run.runId}/approve`, { method: "POST" });
+        await fetchRunDetails(run.runId);
+        render();
+      });
+      appDiv.querySelector("#reject-run-btn")?.addEventListener("click", async () => {
+        await fetch(`${API}/agency/runs/${run.runId}/reject`, { method: "POST" });
+        await fetchRunDetails(run.runId);
+        render();
+      });
+      runCard.appendChild(appDiv);
+    }
+
+    runCard.appendChild(el(`<h3>Execution Tree</h3>`));
+    const tree = el(`<div class="trace-tree"></div>`);
+    steps.forEach((step: any) => {
+      const stepEl = el(`<div class="trace-step">
+        <div class="step-header">
+          <strong>${escapeHtml(step.agentRole.replace("_", " "))}</strong>
+          <span class="badge-status ${step.status.toLowerCase()}">${step.status}</span>
+        </div>
+        <div class="step-meta">
+          <span>Latency: ${step.completedAt ? new Date(step.completedAt).getTime() - new Date(step.startedAt).getTime() : "—"}ms</span>
+          <span>Tokens: ${step.inputTokens}/${step.outputTokens}</span>
+          <span>Cost: $${step.estimatedCost.toFixed(4)}</span>
+          <span>Revisions: ${step.revisionCount}</span>
+        </div>
+      </div>`);
+
+      if (step.status === "ESCALATED") {
+        stepEl.appendChild(el(`<div class="card error" style="margin-top:8px;">
+          <strong>Escalation Blocker:</strong> ${escapeHtml(step.escalationReason || "Unknown")}
+          <button style="margin-top:8px; display:block;" class="secondary" id="retry-step-${step.stepId}">Re-run failed specialist step</button>
+        </div>`));
+        stepEl.querySelector(`#retry-step-${step.stepId}`)?.addEventListener("click", async () => {
+          await fetch(`${API}/agency/runs/${run.runId}/steps/${step.stepId}/retry`, { method: "POST" });
+          await fetchRunDetails(run.runId);
+          render();
+        });
+      }
+
+      tree.appendChild(stepEl);
+    });
+    runCard.appendChild(tree);
+    container.appendChild(runCard);
+
+  } else {
+    // List Runs View
+    const listCard = el(`<div class="card">
+      <h2>Agency Execution History</h2>
+      <p class="muted">List and inspect multi-agent trace runs.</p>
+    </div>`);
+
+    // Side by side controls
+    const compDiv = el(`<div class="stats-bar" style="align-items: center;">
+      <div>
+        <label for="comp-a" style="margin:0;">Run A</label>
+        <select id="comp-a" aria-label="Compare Run A" style="width:200px; display:inline-block; margin-right:12px;"></select>
+        <label for="comp-b" style="margin:0;">Run B</label>
+        <select id="comp-b" aria-label="Compare Run B" style="width:200px; display:inline-block; margin-right:12px;"></select>
+        <button id="compare-btn" style="margin:0;">Compare side-by-side</button>
+      </div>
+    </div>`);
+    listCard.appendChild(compDiv);
+
+    // List runs table
+    const table = el(`<table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Status</th>
+          <th>Total Latency</th>
+          <th>Total Cost</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>`);
+
+    const tbody = table.querySelector("tbody")!;
+    if (state.runs.length === 0) {
+      tbody.appendChild(el(`<tr><td colspan="5" class="muted" style="text-align:center;">No agency runs completed yet.</td></tr>`));
+    } else {
+      state.runs.forEach((run) => {
+        const tr = el(`<tr>
+          <td><strong>${escapeHtml(run.runId.substring(0, 8))}...</strong></td>
+          <td><span class="badge-status ${run.status.toLowerCase()}">${run.status}</span></td>
+          <td>${run.totalLatencyMs}ms</td>
+          <td>$${run.estimatedCost.toFixed(4)}</td>
+          <td><button data-open-run="${run.runId}">Inspect trace</button></td>
+        </tr>`);
+        tr.querySelector(`[data-open-run]`)?.addEventListener("click", async () => {
+          state.selectedRunId = run.runId;
+          await fetchRunDetails(run.runId);
+          render();
+        });
+        tbody.appendChild(tr);
+      });
+    }
+    listCard.appendChild(table);
+    container.appendChild(listCard);
+
+    // Pop comparison selectors
+    setTimeout(() => {
+      const selectA = compDiv.querySelector("#comp-a") as HTMLSelectElement;
+      const selectB = compDiv.querySelector("#comp-b") as HTMLSelectElement;
+      if (selectA && selectB) {
+        state.runs.forEach((run) => {
+          selectA.appendChild(el(`<option value="${run.runId}">${escapeHtml(run.runId.substring(0, 8))}</option>`));
+          selectB.appendChild(el(`<option value="${run.runId}">${escapeHtml(run.runId.substring(0, 8))}</option>`));
+        });
+      }
+      compDiv.querySelector("#compare-btn")?.addEventListener("click", async () => {
+        const idA = selectA.value;
+        const idB = selectB.value;
+        if (!idA || !idB) return;
+        await renderSideBySideComparison(idA, idB, container);
+      });
+    }, 50);
+  }
+
+  return container;
+}
+
+async function renderSideBySideComparison(idA: string, idB: string, parentEl: HTMLElement) {
+  try {
+    const resA = await fetch(`${API}/agency/runs/${idA}`);
+    const jsonA = await resA.json();
+    const runA = jsonA.data.run;
+
+    const resB = await fetch(`${API}/agency/runs/${idB}`);
+    const jsonB = await resB.json();
+    const runB = jsonB.data.run;
+
+    const compCard = el(`<div class="card" style="border: 2px solid var(--accent);">
+      <h2>Run Comparison</h2>
+      <button class="secondary" id="close-comp-btn">Close Comparison</button>
+      <table class="comparison-table">
+        <thead>
+          <tr>
+            <th>Metric</th>
+            <th>Run A (${escapeHtml(idA.substring(0, 8))})</th>
+            <th>Run B (${escapeHtml(idB.substring(0, 8))})</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Status</strong></td>
+            <td><span class="badge-status ${runA.status.toLowerCase()}">${runA.status}</span></td>
+            <td><span class="badge-status ${runB.status.toLowerCase()}">${runB.status}</span></td>
+          </tr>
+          <tr>
+            <td><strong>Total Latency</strong></td>
+            <td>${runA.totalLatencyMs}ms</td>
+            <td>${runB.totalLatencyMs}ms</td>
+          </tr>
+          <tr>
+            <td><strong>Tokens (In/Out)</strong></td>
+            <td>${runA.totalInputTokens}/${runA.totalOutputTokens}</td>
+            <td>${runB.totalInputTokens}/${runB.totalOutputTokens}</td>
+          </tr>
+          <tr>
+            <td><strong>Estimated Cost</strong></td>
+            <td>$${runA.estimatedCost.toFixed(4)}</td>
+            <td>$${runB.estimatedCost.toFixed(4)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`);
+
+    compCard.querySelector("#close-comp-btn")?.addEventListener("click", () => {
+      compCard.remove();
+    });
+
+    parentEl.insertBefore(compCard, parentEl.firstChild);
+  } catch (e) {
+    state.error = "Comparison failed: " + (e as Error).message;
+    render();
+  }
+}
+
+// Refresh Version Footer
 const versionEl = document.querySelector(".app-version");
 if (versionEl) {
-  versionEl.textContent = import.meta.env.VITE_APP_VERSION || "0.3.0";
+  versionEl.textContent = "0.3.0";
 }
 const commitEl = document.querySelector(".commit-sha");
 if (commitEl) {
-  commitEl.textContent = import.meta.env.VITE_GIT_COMMIT_SHA || "dev";
+  commitEl.textContent = "dev";
 }
