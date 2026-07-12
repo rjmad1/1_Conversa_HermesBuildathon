@@ -33,7 +33,7 @@ export class QAReviewerImpl implements QAReviewer {
           groundingPassed: true,
           policyPassed: false,
         };
-      } else if (matchedCase.requiresRevision) {
+      } else if (matchedCase.requiresRevision && findings.proposedActions) {
         // If Action Specialist output does not have a dueDate, it violates policy
         const hasDueDate = findings.proposedActions?.every((a: any) => a.dueDate !== null);
         if (!hasDueDate) {

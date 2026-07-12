@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { makeContext, makeIdentity } from "../../helpers";
-import { CreateMeeting } from "../../../src/modules/meetings/create-meeting"; // Wait, where is CreateMeeting imported in flow.spec.ts?
-// Ah! flow.spec.ts does: import { CreateMeeting } from "../../src/modules/meetings/application/create-meeting";
-// Let's verify imports from the correct paths.
 import { CreateMeeting as CreateMeetingApp } from "../../../src/modules/meetings/application/create-meeting";
 import { SubmitMeetingTranscript } from "../../../src/modules/meetings/application/submit-transcript";
 import { RunMeetingAgency } from "../../../src/modules/agency/application/run-meeting-agency";
@@ -55,8 +52,8 @@ describe("integration: Managed Meeting Agency Crew", () => {
 
     // Risk and Action specialists should be marked as skipped
     const steps = await (ctx.repos as any).agencyRun.listSteps(ctx.identity.tenantId, ctx.identity.workspaceId, run.runId);
-    expect(steps.some(s => s.agentRole === "RISK_SPECIALIST")).toBe(false);
-    expect(steps.some(s => s.agentRole === "ACTION_SPECIALIST")).toBe(false);
+    expect(steps.some((s: any) => s.agentRole === "RISK_SPECIALIST")).toBe(false);
+    expect(steps.some((s: any) => s.agentRole === "ACTION_SPECIALIST")).toBe(false);
   });
 
   it("gaters manual approval before finalizing outputs", async () => {
