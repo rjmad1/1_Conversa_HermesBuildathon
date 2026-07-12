@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { AppContext } from "../../app-context";
+import { type AppContext, auditMeta } from "../../app-context";
 import type { Meeting, CreateMeetingInput } from "../../../shared/validation/schemas";
 import { CreateMeetingInputSchema } from "../../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../../shared/errors/AppError";
@@ -27,7 +27,7 @@ export class CreateMeeting {
     };
     await this.ctx.repos.meeting.save(meeting);
     await this.ctx.audit.record({
-      ...this.auditMeta(meeting.id, correlationId),
+      ...auditMeta(this.ctx, meeting.id, correlationId),
       entityType: "MEETING",
       entityId: meeting.id,
       eventType: "MEETING_CREATED",
@@ -35,15 +35,5 @@ export class CreateMeeting {
     });
     logger.info({ operation: "CreateMeeting", correlationId, outcome: "success" }, "meeting created");
     return meeting;
-  }
-  private auditMeta(meetingId: string, correlationId: string) {
-    return {
-      tenantId: this.ctx.identity.tenantId,
-      workspaceId: this.ctx.identity.workspaceId,
-      meetingId,
-      actorType: this.ctx.identity.actorType,
-      actorId: this.ctx.identity.actorId,
-      correlationId,
-    };
   }
 }

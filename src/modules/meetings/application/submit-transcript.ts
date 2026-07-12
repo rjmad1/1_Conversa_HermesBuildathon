@@ -14,6 +14,9 @@ export interface SubmitTranscriptInput {
 export class SubmitMeetingTranscript {
   constructor(private readonly ctx: AppContext) {}
   async execute(meetingId: string, input: SubmitTranscriptInput, correlationId: string): Promise<Transcript> {
+    if (!input || typeof input.content !== "string") {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Transcript content is required and must be a string", 400);
+    }
     const min = 10;
     const max = 50000;
     const content = input.content.replace(/\s+/g, " ").trim();
