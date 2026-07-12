@@ -15,8 +15,10 @@ export interface HealthReport {
 }
 
 /** Liveness confirms the process is running. Always true if reachable. */
-export function liveness(): { live: true } {
-  return { live: true };
+export function liveness(): { live: true; version: string; commit: string } {
+  const commit = (process.env.VITE_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "dev").substring(0, 7);
+  const version = process.env.VITE_APP_VERSION || "0.3.0";
+  return { live: true, version, commit };
 }
 
 /** Readiness validates required dependencies (persistence, providers). */

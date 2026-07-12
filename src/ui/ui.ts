@@ -239,3 +239,13 @@ function screenAudit(): HTMLElement {
 }
 
 render();
+
+// Update version and commit SHA in footer at startup
+const versionEl = document.querySelector(".app-version");
+if (versionEl) {
+  versionEl.textContent = import.meta.env.VITE_APP_VERSION || "0.3.0";
+}
+const commitEl = document.querySelector(".commit-sha");
+if (commitEl) {
+  commitEl.textContent = import.meta.env.VITE_GIT_COMMIT_SHA || "dev";
+}
