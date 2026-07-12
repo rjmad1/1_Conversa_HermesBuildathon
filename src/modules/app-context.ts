@@ -1,10 +1,10 @@
-import type { Repos } from "../../infrastructure/repositories/in-memory";
-import type { AudioStorage } from "../../modules/media/domain/storage";
-import type { AudioTranscriptionProvider } from "../../modules/transcription/domain/provider";
-import type { MeetingAnalysisProvider } from "../../modules/analysis/domain/provider";
-import type { AuditPort } from "../../modules/audit/domain/port";
-import type { Identity } from "../../shared/security/identity";
-import type { AppEnv } from "../../shared/config/env";
+import type { Repos } from "../infrastructure/repositories/in-memory";
+import type { AudioStorage } from "./media/domain/storage";
+import type { AudioTranscriptionProvider } from "./transcription/domain/provider";
+import type { MeetingAnalysisProvider } from "./analysis/domain/provider";
+import type { AuditPort } from "./audit/domain/port";
+import type { Identity } from "../shared/security/identity";
+import type { AppEnv } from "../shared/config/env";
 
 export interface AppContext {
   repos: Repos;

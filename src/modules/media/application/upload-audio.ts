@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import type { AppContext } from "../app-context";
-import { auditMeta } from "../app-context";
-import type { AudioAsset } from "../../shared/validation/schemas";
-import { AppError, ErrorCode } from "../../shared/errors/AppError";
-import { allowedMimeTypes, isVideoEnabled } from "../../shared/config/env";
-import { checksumOf, sanitizeFilename, isExtensionMimeConsistent, formatForMime } from "../../shared/validation/media";
-import { logger } from "../../shared/logging/logger";
+import type { AppContext } from "../../app-context";
+import { auditMeta } from "../../app-context";
+import type { AudioAsset } from "../../../shared/validation/schemas";
+import { AppError, ErrorCode } from "../../../shared/errors/AppError";
+import { allowedMimeTypes, isVideoEnabled } from "../../../shared/config/env";
+import { checksumOf, sanitizeFilename, isExtensionMimeConsistent } from "../../../shared/validation/media";
+import { formatForMime } from "../../../shared/validation/formats";
+import { logger } from "../../../shared/logging/logger";
 
 export interface UploadAudioInput {
   file: { bytes: Uint8Array; fileName: string; mimeType: string; durationSeconds?: number };
@@ -53,14 +54,12 @@ export class UploadMeetingAudio {
     }
 
     const id = randomUUID();
-    const ref = (this.ctx.storage as { buildRef?: (t: string, w: string, m: string, a: string) => string }).buildRef
-      ? (this.ctx.storage as { buildRef: (t: string, w: string, m: string, a: string) => string }).buildRef(
-          this.ctx.identity.tenantId,
-          this.ctx.identity.workspaceId,
-          meetingId,
-          id,
-        )
-      : `tenants/${this.ctx.identity.tenantId}/workspaces/${this.ctx.identity.workspaceId}/media/${id}`;
+    const ref = this.ctx.storage.buildRef(
+      this.ctx.identity.tenantId,
+      this.ctx.identity.workspaceId,
+      meetingId,
+      id,
+    );
     await this.ctx.storage.put(ref, input.file.bytes, mime);
 
     const now = new Date().toISOString();

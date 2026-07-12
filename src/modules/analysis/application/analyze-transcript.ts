@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import type { AppContext } from "../app-context";
-import { auditMeta } from "../app-context";
-import type { AnalysisRun, MeetingAnalysis } from "../../shared/validation/schemas";
-import { MeetingAnalysisSchema } from "../../shared/validation/schemas";
-import { AppError, ErrorCode } from "../../shared/errors/AppError";
-import { logger } from "../../shared/logging/logger";
+import type { AppContext } from "../../app-context";
+import { auditMeta } from "../../app-context";
+import type { AnalysisRun, MeetingAnalysis } from "../../../shared/validation/schemas";
+import { MeetingAnalysisSchema } from "../../../shared/validation/schemas";
+import { AppError, ErrorCode } from "../../../shared/errors/AppError";
+import { logger } from "../../../shared/logging/logger";
 
 export class AnalyzeMeetingTranscript {
   constructor(private readonly ctx: AppContext) {}

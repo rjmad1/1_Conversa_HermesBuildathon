@@ -6,6 +6,13 @@ import { MeetingAnalysisSchema } from "../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../shared/errors/AppError";
 import { logger } from "../../shared/logging/logger";
 
+type JsonSchema = {
+  type: "object";
+  properties: Record<string, unknown>;
+  required: string[];
+  [k: string]: unknown;
+};
+
 /**
  * OpenAI-backed providers. Server-side key only. Used in production when
  * TRANSCRIPTION_PROVIDER / ANALYSIS_PROVIDER = 'openai'. Not invoked in tests/CI.
@@ -23,14 +30,13 @@ export class OpenAITranscriptionProvider implements AudioTranscriptionProvider {
     let attempt = 0;
     while (true) {
       try {
-        const start = Date.now();
         const res = await this.client.audio.transcriptions.create(
-          { file: input.audioRef as unknown as OpenAI.Uploadable, model: this.model },
+          { file: input.audioRef as unknown as OpenAI.Chat.ChatCompletionCreateParams["messages"], model: this.model } as never,
           { timeout: this.timeoutMs },
         );
-        void start;
-        return { language: "en", content: typeof res === "string" ? res : (res as { text: string }).text, segments: [] };
-      } catch (err) {
+        const content = typeof res === "string" ? res : ((res as { text: string }).text ?? "");
+        return { language: "en", content, segments: [] };
+      } catch {
         attempt++;
         if (attempt > this.maxRetries) {
           logger.error({ correlationId: input.correlationId, operation: "transcribe" }, "transcription failed");
@@ -58,7 +64,7 @@ export class OpenAIAnalysisProvider implements MeetingAnalysisProvider {
           {
             model: this.model,
             temperature: 0,
-            response_format: { type: "json_schema", json_schema: { name: "meeting_analysis", schema: analysisJsonSchema() } },
+            response_format: { type: "json_schema", json_schema: { name: "meeting_analysis", schema: analysisJsonSchema() as never } } as never,
             messages: [
               { role: "system", content: "Extract structured meeting analysis as JSON per schema. Do not fabricate owners/dates; use null if unknown." },
               { role: "user", content: input.transcriptContent },
@@ -73,6 +79,7 @@ export class OpenAIAnalysisProvider implements MeetingAnalysisProvider {
         }
         return parsed.data;
       } catch (err) {
+        if (err instanceof AppError) throw err;
         attempt++;
         if (attempt > this.maxRetries) {
           logger.error({ correlationId: input.correlationId, operation: "analyze" }, "analysis failed");
@@ -83,7 +90,7 @@ export class OpenAIAnalysisProvider implements MeetingAnalysisProvider {
   }
 }
 
-function analysisJsonSchema(): object {
+function analysisJsonSchema(): JsonSchema {
   return {
     type: "object",
     properties: {
@@ -118,18 +125,7 @@ function analysisJsonSchema(): object {
             confidence: { type: "number" },
             riskLevel: { type: "string", enum: ["LOW", "MEDIUM", "HIGH"] },
           },
-          required: [
-            "description",
-            "ownerName",
-            "dueDate",
-            "priority",
-            "targetSystem",
-            "actionType",
-            "rationale",
-            "sourceEvidence",
-            "confidence",
-            "riskLevel",
-          ],
+          required: ["description", "ownerName", "dueDate", "priority", "targetSystem", "actionType", "rationale", "sourceEvidence", "confidence", "riskLevel"],
         },
       },
       risks: { type: "array", items: { type: "string" } },

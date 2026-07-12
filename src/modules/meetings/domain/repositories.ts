@@ -8,7 +8,7 @@ import type {
   ProposedAction,
   ApprovalDecision,
   AuditEvent,
-} from "../../shared/validation/schemas";
+} from "../../../shared/validation/schemas";
 
 export interface MeetingRepo {
   save(m: Meeting): Promise<void>;

@@ -7,7 +7,7 @@ export class InMemoryAudioStorage implements AudioStorage {
   buildRef(tenantId: string, workspaceId: string, meetingId: string, assetId: string): string {
     return this.refBuilder.build(tenantId, workspaceId, meetingId, assetId);
   }
-  async put(ref: string, bytes: Uint8Array): Promise<void> {
+  async put(ref: string, bytes: Uint8Array, _mimeType: string): Promise<void> {
     this.blobs.set(ref, bytes);
   }
   async get(ref: string): Promise<Uint8Array | null> {

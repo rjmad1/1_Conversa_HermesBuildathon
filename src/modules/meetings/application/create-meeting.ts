@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
-import type { AppContext } from "../app-context";
-import type { Meeting, CreateMeetingInput } from "../../shared/validation/schemas";
-import { CreateMeetingInputSchema } from "../../shared/validation/schemas";
-import { AppError, ErrorCode } from "../../shared/errors/AppError";
-import { logger } from "../../shared/logging/logger";
+import type { AppContext } from "../../app-context";
+import type { Meeting, CreateMeetingInput } from "../../../shared/validation/schemas";
+import { CreateMeetingInputSchema } from "../../../shared/validation/schemas";
+import { AppError, ErrorCode } from "../../../shared/errors/AppError";
+import { logger } from "../../../shared/logging/logger";
 
 export class CreateMeeting {
   constructor(private readonly ctx: AppContext) {}
