@@ -1,0 +1,57 @@
+## curl homepage
+HTTP/1.1 200 OK
+Accept-Ranges: bytes
+Access-Control-Allow-Origin: *
+Age: 0
+Cache-Control: public, max-age=0, must-revalidate
+Content-Disposition: inline
+Content-Length: 942
+Content-Type: text/html; charset=utf-8
+Date: Sun, 12 Jul 2026 10:15:19 GMT
+Etag: "8e4f493398c8bb620839b3529d34bc96"
+Last-Modified: Sun, 12 Jul 2026 10:15:19 GMT
+Server: Vercel
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Vercel-Cache: MISS
+X-Vercel-Id: bom1::65qvc-1783851319105-24bd22d83b8e
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Conversa — Audio-to-Governed-Action</title>
+    <script type="module" crossorigin src="/assets/index-2bphU9fr.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DGQ_rwkC.css">
+  </head>
+
+## curl api health
+HTTP/1.1 504 Gateway Timeout
+Cache-Control: public, max-age=0, must-revalidate
+Content-Length: 108
+Content-Type: text/plain; charset=utf-8
+Date: Sun, 12 Jul 2026 10:20:20 GMT
+Server: Vercel
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Vercel-Cache: MISS
+X-Vercel-Error: FUNCTION_INVOCATION_TIMEOUT
+X-Vercel-Id: bom1::kgshf-1783851319722-09a5af9c188d
+
+An error occurred with your deployment
+
+FUNCTION_INVOCATION_TIMEOUT
+
+bom1::kgshf-1783851319722-09a5af9c188d
+
+## curl create meeting
+HTTP/1.1 201 Created
+Cache-Control: public, max-age=0, must-revalidate
+Content-Type: application/json
+Date: Sun, 12 Jul 2026 10:20:21 GMT
+Server: Vercel
+Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+X-Vercel-Cache: MISS
+X-Vercel-Id: bom1::iad1::5x5kk-1783851621489-c61a8cad7514
+Transfer-Encoding: chunked
+
+{"data":{"id":"6a2ede4f-2f06-4644-a0ea-eafd715f61cd","tenantId":"demo","workspaceId":"demo","title":"handoff-check","meetingType":"CEREMONY","status":"DRAFT","scheduledAt":"2026-07-12T10:00:00Z","createdBy":"dev-user","createdAt":"2026-07-12T10:20:21.612Z","updatedAt":"2026-07-12T10:20:21.612Z"},"correlationId":"523f28a7-6ab8-4230-b147-fe5b29bcd4e2"}
