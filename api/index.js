@@ -1532,8 +1532,22 @@ function buildApp() {
 }
 
 // api/server.ts
+if (!process.env.VITE_GIT_COMMIT_SHA) {
+  process.env.VITE_GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "dev";
+}
+if (!process.env.VITE_APP_VERSION) {
+  process.env.VITE_APP_VERSION = "0.3.0";
+}
 var app = buildApp();
-var server_default = handle(app);
+var GET = handle(app);
+var POST = handle(app);
+var PUT = handle(app);
+var DELETE = handle(app);
+var OPTIONS = handle(app);
 export {
-  server_default as default
+  DELETE,
+  GET,
+  OPTIONS,
+  POST,
+  PUT
 };
