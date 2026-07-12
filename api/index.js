@@ -2274,17 +2274,21 @@ var QAReviewerImpl = class {
           groundingPassed: true,
           policyPassed: false
         };
-      } else if (matchedCase.requiresRevision && findings.proposedActions) {
-        const hasDueDate = findings.proposedActions?.every((a) => a.dueDate !== null);
-        if (!hasDueDate) {
-          result = {
-            approved: false,
-            reason: matchedCase.revisionReason || "Needs revision",
-            escalated: false,
-            unresolvedQuestions: ["What is the due date?"],
-            groundingPassed: true,
-            policyPassed: false
-          };
+      } else if (matchedCase.requiresRevision) {
+        const actions = findings.proposedActions;
+        const isActionStep = Array.isArray(actions) || handoff.toAgent === "ACTION_SPECIALIST";
+        if (isActionStep) {
+          const hasDueDate = Array.isArray(actions) && actions.length > 0 && actions.every((a) => a.dueDate !== null && a.dueDate !== void 0 && a.dueDate !== "");
+          if (!hasDueDate) {
+            result = {
+              approved: false,
+              reason: matchedCase.revisionReason || "Needs revision",
+              escalated: false,
+              unresolvedQuestions: ["What is the due date?"],
+              groundingPassed: true,
+              policyPassed: false
+            };
+          }
         }
       }
     } else {

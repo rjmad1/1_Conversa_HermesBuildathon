@@ -33,18 +33,22 @@ export class QAReviewerImpl implements QAReviewer {
           groundingPassed: true,
           policyPassed: false,
         };
-      } else if (matchedCase.requiresRevision && findings.proposedActions) {
-        // If Action Specialist output does not have a dueDate, it violates policy
-        const hasDueDate = findings.proposedActions?.every((a: any) => a.dueDate !== null);
-        if (!hasDueDate) {
-          result = {
-            approved: false,
-            reason: matchedCase.revisionReason || "Needs revision",
-            escalated: false,
-            unresolvedQuestions: ["What is the due date?"],
-            groundingPassed: true,
-            policyPassed: false,
-          };
+      } else if (matchedCase.requiresRevision) {
+        // If Action Specialist output does not have a valid dueDate, it violates policy
+        const actions = findings.proposedActions;
+        const isActionStep = Array.isArray(actions) || handoff.toAgent === "ACTION_SPECIALIST";
+        if (isActionStep) {
+          const hasDueDate = Array.isArray(actions) && actions.length > 0 && actions.every((a: any) => a.dueDate !== null && a.dueDate !== undefined && a.dueDate !== "");
+          if (!hasDueDate) {
+            result = {
+              approved: false,
+              reason: matchedCase.revisionReason || "Needs revision",
+              escalated: false,
+              unresolvedQuestions: ["What is the due date?"],
+              groundingPassed: true,
+              policyPassed: false,
+            };
+          }
         }
       }
     } else {
