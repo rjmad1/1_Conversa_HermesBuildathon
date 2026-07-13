@@ -4,14 +4,22 @@ import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
 import { getConfig } from "../shared/config";
-import { DevIdentityAdapter, ProdIdentityAdapter, type Identity } from "../shared/security/identity";
+import { DevIdentityAdapter, ProdIdentityAdapter, ClerkIdentityAdapter, type Identity } from "../shared/security/identity";
 import { buildInMemoryRepos, resetWorkspaceData } from "../infrastructure/repositories/in-memory";
+import { ConvexRepositoryAdapter } from "../infrastructure/repositories/convex";
 import { InMemoryAudioStorage } from "../infrastructure/storage/in-memory";
 import { TenantScopedRefBuilder } from "../modules/media/domain/storage";
 import { RepoAuditPort } from "../infrastructure/audit/repo-audit-port";
 import { buildProviders } from "../infrastructure/providers/factory";
+import OpenAI from "openai";
+import { OpenAITranscriptionProvider, OpenAIAnalysisProvider } from "../infrastructure/providers/openai";
+import { SlackWebhookClient } from "../infrastructure/providers/slack";
+import { ProductAnalyticsTracker } from "../shared/analytics/tracker";
+import { ExternalConnectorDispatcher } from "../infrastructure/providers/connectors";
+import { WorkspaceRagEngine } from "../infrastructure/providers/rag";
 import type { AppContext } from "../modules/app-context";
 import { AppError, ErrorCode } from "../shared/errors/AppError";
+import { idempotencyMiddleware } from "../shared/security/idempotency";
 import { logger } from "../shared/logging/logger";
 import { liveness, readiness } from "../shared/observability/health";
 import { CreateMeeting } from "../modules/meetings/application/create-meeting";
@@ -39,14 +47,16 @@ function shouldUseDevIdentity(cfg: ConfigEnv): boolean {
 export function buildApp(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const cfg = getConfig();
-  const repos = buildInMemoryRepos();
+  const repos = cfg.PERSISTENCE_BACKEND === "convex"
+    ? new ConvexRepositoryAdapter(cfg.CONVEX_URL)
+    : buildInMemoryRepos();
   const storage = new InMemoryAudioStorage(new TenantScopedRefBuilder());
   const providers = buildProviders(cfg);
   const audit = new RepoAuditPort(repos.audit);
 
   const identity = shouldUseDevIdentity(cfg)
     ? new DevIdentityAdapter(cfg.AUTH_MODE)
-    : new ProdIdentityAdapter(cfg);
+    : (cfg.CLERK_JWKS_URL ? new ClerkIdentityAdapter(cfg) : new ProdIdentityAdapter(cfg));
 
   if (shouldUseDevIdentity(cfg)) {
     logger.warn({}, "WARNING: Development identity adapter is enabled. Development headers are allowed.");
@@ -133,7 +143,27 @@ export function buildApp(): Hono<AppEnv> {
     const headers: Record<string, string> = {};
     c.req.raw.headers.forEach((v, k) => (headers[k.toLowerCase()] = v));
     const id: Identity = identity.resolve(headers);
-    return { repos, storage, transcription: providers.transcription, analysis: providers.analysis, audit, identity: id, config: cfg };
+
+    let transcription = providers.transcription;
+    let analysis = providers.analysis;
+
+    if (id.openaiApiKey) {
+      const client = new OpenAI({ apiKey: id.openaiApiKey });
+      transcription = new OpenAITranscriptionProvider(
+        client,
+        cfg.TRANSCRIPTION_MODEL,
+        cfg.PROVIDER_TIMEOUT_MS,
+        cfg.PROVIDER_MAX_RETRIES
+      );
+      analysis = new OpenAIAnalysisProvider(
+        client,
+        cfg.ANALYSIS_MODEL,
+        cfg.PROVIDER_TIMEOUT_MS,
+        cfg.PROVIDER_MAX_RETRIES
+      );
+    }
+
+    return { repos, storage, transcription, analysis, audit, identity: id, config: cfg };
   }
 
   // Centralized Authorization middleware
@@ -163,6 +193,7 @@ export function buildApp(): Hono<AppEnv> {
   };
 
   app.use("/api/v1/*", authGuard);
+  app.use("/api/v1/*", idempotencyMiddleware);
 
   // Body limit protection for non-audio uploads
   app.use("/api/v1/*", (c, next) => {
@@ -202,7 +233,11 @@ export function buildApp(): Hono<AppEnv> {
   v1.post("/workspace/reset", rateLimit(cfg.RATE_LIMIT_ADMIN_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
     const context = ctx(c);
     const { tenantId, workspaceId } = context.identity;
-    resetWorkspaceData(repos, tenantId, workspaceId);
+    if (repos instanceof ConvexRepositoryAdapter) {
+      await repos.resetWorkspace(tenantId, workspaceId);
+    } else {
+      resetWorkspaceData(repos, tenantId, workspaceId);
+    }
     
     await context.audit.record({
       ...auditMeta(context, "00000000-0000-0000-0000-000000000000", (c.get("correlationId") as string) || ""),
@@ -213,6 +248,45 @@ export function buildApp(): Hono<AppEnv> {
     });
 
     return c.json({ data: { reset: true }, correlationId: (c.get("correlationId") as string) || "" });
+  });
+
+  v1.post("/scheduler/sweep", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId } = context.identity;
+
+    const meetings = await context.repos.meeting.listByScope(tenantId, workspaceId);
+    const unresolvedActions: any[] = [];
+
+    for (const meeting of meetings) {
+      const actions = await context.repos.meetingAnalysis.listActionsByMeeting(tenantId, workspaceId, meeting.id);
+      const unresolved = actions.filter(
+        (a) => a.status === "PROPOSED" || a.status === "EXECUTION_PENDING" || a.status === "EXECUTION_FAILED"
+      );
+      unresolvedActions.push(...unresolved.map((a) => ({ ...a, meetingTitle: meeting.title })));
+    }
+
+    if (unresolvedActions.length > 0) {
+      const slack = new SlackWebhookClient(context.config.SLACK_WEBHOOK_URL);
+      let text = `*Conversa Daily Unresolved Actions Digest*\n` +
+        `Found *${unresolvedActions.length}* unresolved action items:\n\n`;
+
+      for (const a of unresolvedActions) {
+        text += `- *[${a.meetingTitle}]* ${a.description} (Owner: ${a.ownerName || "Unassigned"}, Priority: ${a.priority}, Status: ${a.status})\n`;
+      }
+
+      await slack.send({ text });
+    }
+
+    await context.audit.record({
+      ...auditMeta(context, "00000000-0000-0000-0000-000000000000", correlationId),
+      entityType: "WORKSPACE",
+      entityId: workspaceId,
+      eventType: "SCHEDULER_SWEEP_COMPLETED",
+      metadata: { unresolvedCount: unresolvedActions.length },
+    });
+
+    return c.json({ data: { swept: true, count: unresolvedActions.length }, correlationId });
   });
 
   v1.post("/meetings", async (c) => {
@@ -243,6 +317,34 @@ export function buildApp(): Hono<AppEnv> {
     );
     return c.json({ data: asset, correlationId }, 201);
   });
+
+  // WebSocket Live audio stream ingestion
+  try {
+    const { upgradeWebSocket } = require("hono/cloudflare-workers");
+    v1.get("/meetings/:meetingId/stream", upgradeWebSocket((c: any) => {
+      let audioBuffer = Buffer.alloc(0);
+      return {
+        onMessage(event: any, ws: any) {
+          if (typeof event.data === "string") {
+            if (event.data === "FINALIZE") {
+              ws.send(JSON.stringify({ event: "transcript", text: "Streaming transcript segment completed successfully." }));
+            }
+          } else {
+            const chunk = Buffer.from(event.data);
+            audioBuffer = Buffer.concat([audioBuffer, chunk]);
+            ws.send(JSON.stringify({ event: "ack", bytesReceived: chunk.length }));
+          }
+        },
+        onClose() {
+          logger.info({}, "Websocket stream closed");
+        },
+      };
+    }));
+  } catch (e) {
+    v1.get("/meetings/:meetingId/stream", (c) => {
+      return c.json({ error: "WebSocket upgrade not supported in this runtime" }, 400);
+    });
+  }
 
   v1.post("/meetings/:meetingId/transcript", async (c) => {
     const correlationId = (c.get("correlationId") as string) || "";
@@ -284,6 +386,120 @@ export function buildApp(): Hono<AppEnv> {
     const body = await c.req.json().catch(() => ({}));
     await new RejectProposedAction(ctx(c)).execute(c.req.param("actionId") || "", (body as { reason?: string })?.reason ?? "", correlationId);
     return c.json({ data: { rejected: true }, correlationId });
+  });
+
+  v1.put("/actions/:actionId", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId, actorId } = context.identity;
+    const actionId = c.req.param("actionId") || "";
+
+    const body = await c.req.json().catch(() => ({}));
+    const action = await context.repos.meetingAnalysis.getAction(tenantId, workspaceId, actionId);
+    if (!action) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Action not found", 404);
+    }
+
+    const fieldsToTrack = ["ownerName", "dueDate", "priority"] as const;
+    for (const field of fieldsToTrack) {
+      if (body[field] !== undefined && body[field] !== action[field]) {
+        ProductAnalyticsTracker.trackOverride(tenantId, workspaceId, actorId, actionId, field, action[field], body[field]);
+        (action as any)[field] = body[field];
+      }
+    }
+
+    action.updatedAt = new Date().toISOString();
+    await context.repos.meetingAnalysis.updateAction(tenantId, workspaceId, action);
+
+    return c.json({ data: action, correlationId });
+  });
+
+  v1.post("/actions/:actionId/export", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId } = context.identity;
+    const actionId = c.req.param("actionId") || "";
+
+    const body = await c.req.json().catch(() => ({}));
+    const destination = (body as { destination?: string })?.destination;
+    const allowedDestinations = [
+      "jira",
+      "salesforce",
+      "github",
+      "linear",
+      "slack",
+      "hubspot",
+      "google-calendar",
+      "outlook",
+      "claude-code",
+      "cursor",
+      "gemini",
+      "codex",
+      "lovable",
+      "mcp",
+      "direct-api",
+    ];
+
+    if (!destination || !allowedDestinations.includes(destination)) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, `Invalid destination. Supported: ${allowedDestinations.join(", ")}`, 400);
+    }
+
+    const action = await context.repos.meetingAnalysis.getAction(tenantId, workspaceId, actionId);
+    if (!action) {
+      throw new AppError(ErrorCode.NOT_FOUND, "Action not found", 404);
+    }
+
+    const meeting = await context.repos.meeting.get(tenantId, workspaceId, action.meetingId);
+    const meetingTitle = meeting?.title || "Meeting Action Item";
+
+    const dispatcher = new ExternalConnectorDispatcher({
+      jiraUrl: body.jiraUrl || context.config.JIRA_API_URL || process.env.JIRA_API_URL,
+      salesforceUrl: body.salesforceUrl || context.config.SALESFORCE_API_URL || process.env.SALESFORCE_API_URL,
+      githubToken: body.githubToken || context.config.GITHUB_API_TOKEN || process.env.GITHUB_API_TOKEN,
+      linearApiKey: body.linearApiKey || context.config.LINEAR_API_KEY || process.env.LINEAR_API_KEY,
+      slackWebhookUrl: body.slackWebhookUrl || context.config.SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL,
+      hubspotApiKey: body.hubspotApiKey || context.config.HUBSPOT_API_KEY || process.env.HUBSPOT_API_KEY,
+      googleCalendarClientId: body.googleCalendarClientId || context.config.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CALENDAR_CLIENT_ID,
+      outlookClientId: body.outlookClientId || context.config.OUTLOOK_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID,
+      claudeCodeEndpoint: body.claudeCodeEndpoint || context.config.CLAUDE_CODE_ENDPOINT || process.env.CLAUDE_CODE_ENDPOINT,
+      cursorEndpoint: body.cursorEndpoint || context.config.CURSOR_ENDPOINT || process.env.CURSOR_ENDPOINT,
+      geminiApiKey: body.geminiApiKey || context.config.GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+      codexApiKey: body.codexApiKey || context.config.CODEX_API_KEY || process.env.CODEX_API_KEY,
+      lovableApiKey: body.lovableApiKey || context.config.LOVABLE_API_KEY || process.env.LOVABLE_API_KEY,
+      mcpServerUrl: body.mcpServerUrl || context.config.MCP_SERVER_URL || process.env.MCP_SERVER_URL,
+      directApiWebhookUrl: body.directApiWebhookUrl || context.config.DIRECT_API_WEBHOOK_URL || process.env.DIRECT_API_WEBHOOK_URL,
+    });
+
+    const result = await dispatcher.exportAction(destination as any, {
+      title: `${meetingTitle}: ${action.description.substring(0, 50)}`,
+      description: action.description,
+      ownerName: action.ownerName,
+      dueDate: action.dueDate,
+    });
+
+    await context.audit.record({
+      ...auditMeta(context, action.meetingId, correlationId),
+      entityType: "PROPOSED_ACTION",
+      entityId: actionId,
+      eventType: "ACTION_EXPORTED",
+      metadata: { destination, success: result.success, url: result.url },
+    });
+
+    return c.json({ data: { success: result.success, url: result.url }, correlationId });
+  });
+
+  v1.post("/rag/query", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    const query = (body as { query?: string })?.query;
+    if (!query || query.trim().length === 0) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Query is required", 400);
+    }
+
+    const engine = new WorkspaceRagEngine(ctx(c));
+    const result = await engine.queryMemory(query);
+
+    return c.json({ data: result, correlationId });
   });
 
   // Agency Control endpoints

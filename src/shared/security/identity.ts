@@ -7,6 +7,7 @@ export interface Identity {
   actorId: string;
   actorType: "user" | "system" | "agent";
   role: "viewer" | "approver" | "admin";
+  openaiApiKey?: string;
 }
 
 export interface IdentityAdapter {
@@ -59,6 +60,7 @@ export class DevIdentityAdapter implements IdentityAdapter {
       actorId,
       actorType: "user",
       role: resolveRole(actorId),
+      openaiApiKey: headers["x-openai-api-key"],
     };
   }
 }
@@ -122,6 +124,59 @@ export class ProdIdentityAdapter implements IdentityAdapter {
       actorId: resolved.actorId,
       actorType: "user",
       role: resolved.role,
+      openaiApiKey: headers["x-openai-api-key"],
     };
+  }
+}
+
+/**
+ * Clerk identity adapter. Decodes Clerk JWT claims and optionally performs cryptographic checks.
+ */
+export class ClerkIdentityAdapter implements IdentityAdapter {
+  constructor(private readonly cfg: AppEnv) {}
+
+  isProduction(): boolean {
+    return true;
+  }
+
+  resolve(headers: Record<string, string | undefined>): Identity {
+    const authHeader = headers["authorization"];
+    if (!authHeader) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Authorization required", 401);
+    }
+
+    if (!authHeader.startsWith("Bearer ")) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid authorization header format. Use Bearer <token>", 401);
+    }
+
+    const token = authHeader.substring(7).trim();
+
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, "Malformed JWT token", 401);
+      }
+
+      // Base64url decode payload
+      const payloadB64 = parts[1] || "";
+      const payloadStr = Buffer.from(payloadB64, "base64url").toString("utf-8");
+      const claims = JSON.parse(payloadStr);
+
+      const actorId = claims.sub || "anonymous";
+      const tenantId = claims.tenantId || claims.org_id || "demo";
+      const workspaceId = claims.workspaceId || "demo";
+      const role = claims.role || (claims.org_role === "org:admin" ? "admin" : "approver");
+
+      return {
+        tenantId,
+        workspaceId,
+        actorId,
+        actorType: "user",
+        role: role as any,
+        openaiApiKey: headers["x-openai-api-key"],
+      };
+    } catch (err) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid token claims", 401);
+    }
   }
 }

@@ -191,6 +191,8 @@ export const AuditEventSchema = TenantScopeSchema.extend({
   correlationId: z.string(),
   metadata: z.record(z.string(), z.unknown()),
   createdAt: ISO,
+  hash: z.string().optional(),
+  previousHash: z.string().optional(),
 });
 export type AuditEvent = z.infer<typeof AuditEventSchema>;
 

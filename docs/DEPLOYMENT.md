@@ -1,59 +1,65 @@
-# Conversa — Deployment (Audio-First) — DECISION RECORD
+# Conversa — Deployment & CI/CD Architecture
 
-**Author role:** Platform / DevOps Engineer
-**Status:** **RESOLVED — Cloudflare is primary.** (Conflicts with the older Vercel-only MVP plan; this record supersedes it.)
+---
+### 📋 Document Metadata
+- **Purpose**: Defines hosting targets, environment configurations, CI/CD workflow steps, and rollbacks.
+- **Audience**: DevOps engineers, system operators, and SREs.
+- **Last Generated**: 2026-07-13T05:20:47+05:30
+- **Confidence Level**: High (Verified against active workflows and project configuration files).
+- **Evidence Used**: Root configuration `.github/workflows/security-ci.yml`, `package.json` scripts, and `vercel.json`.
+- **Cross References**: See [ARCHITECTURE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/ARCHITECTURE.md), [PERFORMANCE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/PERFORMANCE.md).
+- **Open Questions**: Automated blue-green deployment switches.
+- **Known Limitations**: Ephemeral database deployment.
+- **Recommended Next Actions**: Enforce TLS and HTTPS verification at deployment gateway.
+---
 
-> Note on source: the shared Perplexity link was a private/signed-in session and returned only the login shell — no retrievable content. The decision below is grounded in the architectural constraints in `docs/architecture.md` and `docs/non-functional.md` (60s Vercel cap vs Whisper latency on 10MB audio; need for durable object storage).
+## 1. Target Infrastructure Environments
 
-## 1. Decision
+Conversa is built to support serverless and edge hosting targets:
 
-**Primary deployment target: Cloudflare.**
-- **Workers** for API/runtime (longer CPU limits than Vercel's 60s function cap).
-- **R2** for audio object storage (opaque, tenant/workspace-scoped references).
-- **Pages** for the UI (or Worker-served static).
-- **KV / D1 / Convex** for metadata + `TranscriptionJob` state (pick one; see §5).
-- **Partner alignment:** Cloudflare is already the hosting/edge/security partner in `TechnicalNeeds.md`.
+### 1.1 Cloudflare Stack (Target Pilot Architecture)
+* **API / App Handler**: Cloudflare Workers (retains longer execution timeouts than standard serverless).
+* **Audio Object Storage**: Cloudflare R2 (enforces opaque, tenant-scoped storage structures).
+* **Static Client Serving**: Cloudflare Pages.
+* **Metadata Store**: Cloudflare D1 (relational SQLite database).
 
-Vercel is **not** used in this release. If a future phase needs Vercel, the runtime boundary (Workers-compatible, no Node-only FS reliance) must be preserved.
+### 1.2 Vercel / Node Server (Demo / Buildathon Runtime)
+* **Application Server**: Node Server hosted on Vercel Serverless (using `@hono/node-server`).
+* **Metadata Store**: Ephemeral in-memory repositories.
+* **Ingestion Limits**: In-memory body size parsing restrictions (`AUDIO_MAX_BYTES`).
 
-## 2. Why Cloudflare (brutal)
+---
 
-| Risk | Vercel | Cloudflare |
-| --- | --- | --- |
-| 10MB MP3 → Whisper latency | 60s hard cap → silent 408/timeouts | Higher CPU limit → survives |
-| Durable audio storage | None (ephemeral FS) → needs R2/S3 anyway | Native R2 |
-| Partner consistency | No | Yes (hosting partner) |
-
-## 3. Storage Layout
-
+## 2. Audio Storage Layout & Tenancy Scoping
+Raw audio assets are stored inside the `conversa-media` bucket and scoped by tenant and workspace identifiers:
 ```text
-R2 bucket: conversa-media
-  tenants/{tenantId}/workspaces/{workspaceId}/media/{assetId}
+conversa-media/tenants/{tenantId}/workspaces/{workspaceId}/media/{assetId}
 ```
-- `assetId` opaque (UUID). Signed URL / controlled access for retrieval.
-- Relational/doc record stores metadata + `storageReference` only — **never raw audio bytes**.
-- **No raw audio in logs** (only `assetId` + `status`).
+* **Security Constraints**: `assetId` is represented by an obfuscated UUID. Database records store only metadata and the `storageReference` path — **never raw audio bytes**. Raw audio is never logged.
 
-## 4. Env / Config (`.env.example`)
-- `AUDIO_MAX_BYTES=10485760`, `AUDIO_MAX_SECONDS=7200`
-- `AUDIO_ALLOWED_MIME_TYPES=audio/mpeg,audio/wav,audio/mp4`
-- `MEDIA_VIDEO_ENABLED=false`
-- `TRANSCRIPTION_PROVIDER=openai`
-- `AUDIO_STORAGE_PREFIX=media`, `AUDIO_RETENTION_DAYS=90`
-- `CLOUDFLARE_R2_BUCKET`, `CLOUDFLARE_ACCOUNT_ID` (secrets via Cloudflare env, not committed)
+---
 
-## 5. Open Deployment Decisions (still open — resolve in build)
+## 3. GitHub Actions Continuous Integration (`security-ci.yml`)
 
-1. **Metadata store:** D1 (SQLite) vs KV vs Convex. For MVP speed + relational shape (`AudioAsset` fields), **D1** is the pragmatic pick; Convex if realtime is desired later. Pick one.
-2. **Tenant resolution:** Fixed demo tenant (`demo`/`demo`) per `docs/architecture.md` §6; header-based extension (`X-Tenant-Id`/`X-Workspace-Id`) documented, inactive until auth.
-3. **TranscriptionJob state:** store status in the same metadata store; poll or webhook from Worker.
-4. **Sample asset:** `public/sample-meeting.mp3` must exist (repo currently has none). Source a licensed short clip; add `video/sample-rejected.mp4` for the 415 test only.
+The automated QA and security pipeline runs on every push and pull-request targeting the `main`/`master` branches:
 
-## 6. CI/CD
-- GitHub Actions: lint → type-check → test → build (wrangler) → deploy.
-- Rollback: `wrangler rollback` / Cloudflare previous deployment.
+```mermaid
+graph TD
+    Checkout[Checkout Code] --> SetupNode[Set up Node 20]
+    SetupNode --> InstallDeps[Install Dependencies via npm ci]
+    InstallDeps --> Typecheck[Run Typecheck tsc --noEmit]
+    Typecheck --> Lint[Lint Code via ESLint]
+    Lint --> UnitTests[Run Unit Tests]
+    UnitTests --> IntTests[Run Integration Tests]
+    IntTests --> E2ETests[Run E2E Tests]
+    E2ETests --> Build[Build Production Bundles]
+    Build --> AuditDeps[npm audit --audit-level=critical]
+    AuditDeps --> SecretScan[Run GitLeaks Secret Scan]
+```
 
-## 7. Constraints (hard)
-- Audio ≤ limits; MP3/WAV/M4A only.
-- No video, no camera.
-- Raw audio never in logs; opaque storage references.
+---
+
+## 4. Rollback & Disaster Recovery Procedures
+1. **Rollback Actions**: In Cloudflare deployments, use `wrangler rollback` or trigger a previous build deploy from the Pages portal. On Vercel, redeploy the target Git SHA from the dashboard.
+2. **Disaster Recovery**: Since the current prototype database is volatile, a disaster recovery scenario requires redeployment of the API and invoking the workspace administrative setup scripts to rebuild structures.
+3. **Data Backups**: Audio object storage files in R2 can be configured with automated replication rules across multi-regions.

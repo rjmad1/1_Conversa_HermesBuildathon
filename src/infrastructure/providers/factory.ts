@@ -3,6 +3,7 @@ import type { AppEnv } from "../../shared/config/env";
 import { FakeTranscriptionProvider } from "../providers/fake-transcription";
 import { FakeAnalysisProvider } from "../providers/fake-analysis";
 import { OpenAITranscriptionProvider, OpenAIAnalysisProvider } from "../providers/openai";
+import { AnthropicAnalysisProvider, FailoverAnalysisProvider } from "../providers/anthropic";
 import type { AudioTranscriptionProvider } from "../../modules/transcription/domain/provider";
 import type { MeetingAnalysisProvider } from "../../modules/analysis/domain/provider";
 
@@ -26,7 +27,9 @@ export function buildProviders(cfg: AppEnv): ProviderBundle {
 
 function buildAnalysis(cfg: AppEnv, client: OpenAI): MeetingAnalysisProvider {
   if (cfg.ANALYSIS_PROVIDER === "openai") {
-    return new OpenAIAnalysisProvider(client, cfg.ANALYSIS_MODEL, cfg.PROVIDER_TIMEOUT_MS, cfg.PROVIDER_MAX_RETRIES);
+    const primary = new OpenAIAnalysisProvider(client, cfg.ANALYSIS_MODEL, cfg.PROVIDER_TIMEOUT_MS, cfg.PROVIDER_MAX_RETRIES);
+    const secondary = new AnthropicAnalysisProvider(cfg.ANTHROPIC_API_KEY);
+    return new FailoverAnalysisProvider(primary, secondary);
   }
   return new FakeAnalysisProvider();
 }

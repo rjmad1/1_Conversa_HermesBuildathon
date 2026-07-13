@@ -1,7 +1,7 @@
 // Conversa UI — Managed AI Agency control panel & run trace interface.
 const API = "/api/v1";
 
-type TabState = "workflow" | "agency-control" | "agency-runs";
+type TabState = "workflow" | "agency-control" | "agency-runs" | "tools";
 
 type AppState = {
   meetingId?: string;
@@ -62,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabWorkflow = document.getElementById("tab-workflow");
   const tabAgencyControl = document.getElementById("tab-agency-control");
   const tabAgencyRuns = document.getElementById("tab-agency-runs");
+  const tabTools = document.getElementById("tab-tools");
 
   tabWorkflow?.addEventListener("click", () => {
     state.activeTab = "workflow";
@@ -83,11 +84,17 @@ document.addEventListener("DOMContentLoaded", () => {
     render();
   });
 
+  tabTools?.addEventListener("click", () => {
+    state.activeTab = "tools";
+    setActiveTabButton("tab-tools");
+    render();
+  });
+
   render();
 });
 
 function setActiveTabButton(activeId: string) {
-  ["tab-workflow", "tab-agency-control", "tab-agency-runs"].forEach((id) => {
+  ["tab-workflow", "tab-agency-control", "tab-agency-runs", "tab-tools"].forEach((id) => {
     const btn = document.getElementById(id);
     if (btn) {
       if (id === activeId) {
@@ -160,6 +167,8 @@ function render() {
     app.appendChild(screenAgencyControl());
   } else if (state.activeTab === "agency-runs") {
     app.appendChild(screenAgencyRuns());
+  } else if (state.activeTab === "tools") {
+    app.appendChild(screenTools());
   }
 }
 
@@ -297,7 +306,19 @@ function screenReview(): HTMLElement {
   card.appendChild(el(`<h3>Topics</h3><ul>${a.topics.map((t: string) => `<li>${escapeHtml(t)}</li>`).join("")}</ul>`));
   card.appendChild(el(`<h3>Decisions</h3><ul>${a.decisions.map((d: any) => `<li>${escapeHtml(d.description)} <span class="muted">(${escapeHtml(d.sourceEvidence)})</span></li>`).join("")}</ul>`));
   card.appendChild(el(`<h3>Risks</h3><ul>${a.risks.map((r: string) => `<li>${escapeHtml(r)}</li>`).join("")}</ul>`));
+  
   a.proposedActions.forEach((act: any) => {
+    const isApproved = act.status === "APPROVED";
+    const exportSectionHtml = isApproved
+      ? `<div style="margin-top: 16px; padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.4); display: flex; gap: 12px; align-items: center;">
+          <label style="margin: 0; font-weight: bold; color: #4c5e70;">Sync with:</label>
+          <select id="exp-dest-${act.id}" style="width: auto; padding: 6px 12px; border-radius: 8px;" aria-label="Export destination">
+            <!-- Populated dynamically -->
+          </select>
+          <button id="exp-btn-${act.id}" style="margin: 0; padding: 6px 16px;">Sync</button>
+        </div>`
+      : "";
+
     const a2 = el(`<div class="card">
       <p><strong>${escapeHtml(act.description)}</strong></p>
       <p class="muted">Owner: ${escapeHtml(act.ownerName || "—")} · Due: ${escapeHtml(act.dueDate || "—")} · Priority: ${act.priority} · Risk: ${act.riskLevel}</p>
@@ -305,12 +326,15 @@ function screenReview(): HTMLElement {
       <p class="muted">Confidence: ${act.confidence}</p>
       <span class="badge">${act.status}</span>
       <div id="rz-${act.id}" hidden><label>Reason</label><input id="rzr-${act.id}" aria-label="Rejection reason" /></div>
-      <div>
-        <button data-approve="${act.id}">Approve</button>
-        <button class="danger" data-reject="${act.id}">Reject</button>
+      <div style="margin-top: 12px; display: flex; gap: 12px;">
+        <button data-approve="${act.id}" ${isApproved ? "disabled" : ""}>Approve</button>
+        <button class="danger" data-reject="${act.id}" ${act.status === "REJECTED" ? "disabled" : ""}>Reject</button>
       </div>
+      ${exportSectionHtml}
     </div>`);
+
     card.appendChild(a2);
+
     a2.querySelector(`[data-approve]`)?.addEventListener("click", () => actApprove(act.id));
     a2.querySelector(`[data-reject]`)?.addEventListener("click", () => {
       const box = document.getElementById(`rz-${act.id}`)!;
@@ -319,6 +343,75 @@ function screenReview(): HTMLElement {
       btn.addEventListener("click", () => actReject(act.id, (document.getElementById(`rzr-${act.id}`) as HTMLInputElement).value));
       box.appendChild(btn);
     });
+
+    if (isApproved) {
+      setTimeout(() => {
+        const select = document.getElementById(`exp-dest-${act.id}`) as HTMLSelectElement;
+        const btn = document.getElementById(`exp-btn-${act.id}`);
+        
+        const allDestinations = [
+          { value: "jira", label: "Jira" },
+          { value: "salesforce", label: "Salesforce" },
+          { value: "github", label: "GitHub" },
+          { value: "linear", label: "Linear" },
+          { value: "slack", label: "Slack" },
+          { value: "hubspot", label: "HubSpot" },
+          { value: "google-calendar", label: "Google Calendar" },
+          { value: "outlook", label: "Outlook" },
+          { value: "claude-code", label: "Claude Code" },
+          { value: "cursor", label: "Cursor" },
+          { value: "gemini", label: "Gemini" },
+          { value: "codex", label: "Codex" },
+          { value: "lovable", label: "Lovable" },
+          { value: "mcp", label: "MCP" },
+          { value: "direct-api", label: "Direct API" },
+        ];
+
+        // Filter for enabled integrations or list all if none specific
+        let enabled = allDestinations.filter(d => localStorage.getItem(`conversa_tool_${d.value}_enabled`) === "true");
+        if (enabled.length === 0) enabled = allDestinations;
+
+        enabled.forEach(d => {
+          const opt = document.createElement("option");
+          opt.value = d.value;
+          opt.textContent = d.label;
+          select?.appendChild(opt);
+        });
+
+        btn?.addEventListener("click", async () => {
+          const dest = select.value;
+          state.error = undefined;
+          
+          // Construct payload with client credentials
+          const payload: Record<string, any> = { destination: dest };
+          const keys = [
+            "jiraUrl", "salesforceUrl", "githubToken", "linearApiKey", "slackWebhookUrl",
+            "hubspotApiKey", "googleCalendarClientId", "outlookClientId", "claudeCodeEndpoint",
+            "cursorEndpoint", "geminiApiKey", "codexApiKey", "lovableApiKey", "mcpServerUrl",
+            "directApiWebhookUrl"
+          ];
+          
+          keys.forEach(k => {
+            const val = localStorage.getItem(`conversa_tool_${k}`);
+            if (val) payload[k] = val;
+          });
+
+          try {
+            const res = await fetch(`${API}/actions/${act.id}/export`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+            const json = await res.json();
+            if (!res.ok) throw new Error(json.error?.message || "Export failed");
+            alert(`Action successfully synced! Target URL: ${json.data.url}`);
+          } catch (e) {
+            state.error = (e as Error).message;
+            render();
+          }
+        });
+      }, 50);
+    }
   });
   const auditBtn = el(`<button class="secondary">View audit timeline</button>`);
   auditBtn.addEventListener("click", async () => {
@@ -699,6 +792,94 @@ async function renderSideBySideComparison(idA: string, idB: string, parentEl: HT
     state.error = "Comparison failed: " + (e as Error).message;
     render();
   }
+}
+
+function screenTools(): HTMLElement {
+  const container = el(`<div></div>`);
+  const headerCard = el(`<div class="card clay-purple">
+    <h2>Integrations &amp; Tools Directory</h2>
+    <p>Enable and authorize third-party connectors to dynamically sync meeting actions. Keys are securely stored locally in your browser.</p>
+  </div>`);
+  container.appendChild(headerCard);
+
+  const grid = el(`<div class="tools-grid"></div>`);
+  
+  const tools = [
+    { id: "linear", name: "Linear", icon: "🛠️", color: "clay-purple", desc: "Sync actions directly to your engineering team's Linear backlog.", field: "linearApiKey", label: "Linear API Key" },
+    { id: "jira", name: "Jira", icon: "📋", color: "clay-blue", desc: "Export action items to enterprise Jira projects.", field: "jiraUrl", label: "Jira API URL" },
+    { id: "github", name: "GitHub", icon: "🐙", color: "clay-purple", desc: "Create issues in your team repositories.", field: "githubToken", label: "GitHub API Token" },
+    { id: "slack", name: "Slack", icon: "💬", color: "clay-pink", desc: "Publish meeting digests straight to Slack channels.", field: "slackWebhookUrl", label: "Slack Webhook URL" },
+    { id: "hubspot", name: "HubSpot", icon: "🤝", color: "clay-yellow", desc: "Automate task follow-ups in HubSpot CRM.", field: "hubspotApiKey", label: "HubSpot API Key" },
+    { id: "google-calendar", name: "Google Calendar", icon: "📅", color: "clay-green", desc: "Directly schedule calendar event placeholders.", field: "googleCalendarClientId", label: "Google Calendar Client ID" },
+    { id: "outlook", name: "Outlook", icon: "📧", color: "clay-blue", desc: "Schedule Microsoft Outlook events for action deadlines.", field: "outlookClientId", label: "Outlook Client ID" },
+    { id: "claude-code", name: "Claude Code", icon: "🤖", color: "clay-pink", desc: "Push action summaries to your Claude Code workspace.", field: "claudeCodeEndpoint", label: "Claude Code Endpoint" },
+    { id: "cursor", name: "Cursor", icon: "💻", color: "clay-blue", desc: "Expose meeting actions directly in Cursor IDE.", field: "cursorEndpoint", label: "Cursor Endpoint" },
+    { id: "gemini", name: "Gemini", icon: "🌟", color: "clay-yellow", desc: "Trigger automated AI agent pipelines using Gemini API.", field: "geminiApiKey", label: "Gemini API Key" },
+    { id: "codex", name: "Codex", icon: "🧠", color: "clay-purple", desc: "Leverage Codex task parsing engines.", field: "codexApiKey", label: "Codex API Key" },
+    { id: "lovable", name: "Lovable", icon: "❤️", color: "clay-pink", desc: "Push code instructions directly to Lovable workspace.", field: "lovableApiKey", label: "Lovable API Key" },
+    { id: "mcp", name: "MCP Protocol", icon: "⚡", color: "clay-purple", desc: "Connect to model context protocol servers.", field: "mcpServerUrl", label: "MCP Server URL" },
+    { id: "direct-api", name: "Direct API Webhook", icon: "🔗", color: "clay-green", desc: "Deliver generic JSON payload webhooks.", field: "directApiWebhookUrl", label: "Webhook URL" }
+  ];
+
+  tools.forEach(t => {
+    const isEnabled = localStorage.getItem(`conversa_tool_${t.id}_enabled`) === "true";
+    const savedVal = localStorage.getItem(`conversa_tool_${t.field}`) || "";
+    const badgeText = isEnabled && savedVal ? "Connected" : "Not Configured";
+    const badgeClass = isEnabled && savedVal ? "completed" : "paused";
+
+    const card = el(`<div class="tool-card ${t.color}">
+      <div class="tool-header">
+        <div class="tool-icon">${t.icon}</div>
+        <span class="badge-status ${badgeClass}" id="badge-${t.id}">${badgeText}</span>
+      </div>
+      <div class="tool-body">
+        <div class="tool-name">${t.name}</div>
+        <p class="tool-desc">${t.desc}</p>
+        <div style="margin-top: 12px;">
+          <label style="margin: 0 0 4px; font-size:12px; font-weight:bold;">${t.label}</label>
+          <input type="password" id="input-${t.id}" value="${escapeHtml(savedVal)}" placeholder="Enter credentials..." style="padding: 8px 12px; border-radius: 8px;" />
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:13px; font-weight:bold;">Status</span>
+        <label class="switch">
+          <input type="checkbox" id="toggle-${t.id}" ${isEnabled ? "checked" : ""} />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>`);
+
+    const input = card.querySelector(`#input-${t.id}`) as HTMLInputElement;
+    const toggle = card.querySelector(`#toggle-${t.id}`) as HTMLInputElement;
+    const badge = card.querySelector(`#badge-${t.id}`) as HTMLElement;
+
+    const updateStatus = () => {
+      const active = toggle.checked;
+      const val = input.value.trim();
+      if (active && val) {
+        badge.textContent = "Connected";
+        badge.className = "badge-status completed";
+      } else {
+        badge.textContent = "Not Configured";
+        badge.className = "badge-status paused";
+      }
+    };
+
+    input.addEventListener("input", () => {
+      localStorage.setItem(`conversa_tool_${t.field}`, input.value.trim());
+      updateStatus();
+    });
+
+    toggle.addEventListener("change", () => {
+      localStorage.setItem(`conversa_tool_${t.id}_enabled`, String(toggle.checked));
+      updateStatus();
+    });
+
+    grid.appendChild(card);
+  });
+
+  container.appendChild(grid);
+  return container;
 }
 
 // Refresh Version Footer

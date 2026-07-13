@@ -5,6 +5,7 @@ import type { MeetingAnalysis, TranscriptResult } from "../../shared/validation/
 import { MeetingAnalysisSchema } from "../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../shared/errors/AppError";
 import { logger } from "../../shared/logging/logger";
+import { randomUUID } from "node:crypto";
 
 type JsonSchema = {
   type: "object";
@@ -81,8 +82,30 @@ export class OpenAIAnalysisProvider implements MeetingAnalysisProvider {
           { timeout: this.timeoutMs },
         );
         const raw = res.choices[0]?.message?.content ?? "{}";
-        const parsed = MeetingAnalysisSchema.safeParse(JSON.parse(raw));
+        const rawJson = JSON.parse(raw);
+        rawJson.id = rawJson.id || randomUUID();
+        rawJson.meetingId = rawJson.meetingId || input.meetingId;
+        rawJson.createdAt = rawJson.createdAt || new Date().toISOString();
+        if (Array.isArray(rawJson.decisions)) {
+          for (const d of rawJson.decisions) {
+            d.id = d.id || randomUUID();
+            d.meetingId = d.meetingId || input.meetingId;
+            d.createdAt = d.createdAt || rawJson.createdAt;
+          }
+        }
+        if (Array.isArray(rawJson.proposedActions)) {
+          for (const a of rawJson.proposedActions) {
+            a.id = a.id || randomUUID();
+            a.meetingId = a.meetingId || input.meetingId;
+            a.ownerReference = a.ownerReference !== undefined ? a.ownerReference : null;
+            a.status = a.status || "PROPOSED";
+            a.createdAt = a.createdAt || rawJson.createdAt;
+            a.updatedAt = a.updatedAt || rawJson.createdAt;
+          }
+        }
+        const parsed = MeetingAnalysisSchema.safeParse(rawJson);
         if (!parsed.success) {
+          logger.error({ errors: parsed.error.format() }, "Failed to validate analysis JSON schema");
           throw new AppError(ErrorCode.ANALYSIS_FAILED, "Malformed analysis output rejected", 422);
         }
         return parsed.data;

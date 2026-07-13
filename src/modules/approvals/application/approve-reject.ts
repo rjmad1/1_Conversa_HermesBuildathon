@@ -3,6 +3,8 @@ import type { AppContext } from "../../app-context";
 import { auditMeta } from "../../app-context";
 import { AppError, ErrorCode } from "../../../shared/errors/AppError";
 import { logger } from "../../../shared/logging/logger";
+import { SlackWebhookClient } from "../../../infrastructure/providers/slack";
+import { ProductAnalyticsTracker } from "../../../shared/analytics/tracker";
 
 export class ApproveProposedAction {
   constructor(private readonly ctx: AppContext) {}
@@ -14,6 +16,9 @@ export class ApproveProposedAction {
     action.status = "APPROVED";
     action.updatedAt = new Date().toISOString();
     await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
+    
+    // Track Approval Analytics
+    ProductAnalyticsTracker.trackApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, this.ctx.identity.actorId, actionId);
     await this.ctx.audit.record({
       ...auditMeta(this.ctx, action.meetingId, correlationId),
       entityType: "PROPOSED_ACTION",
@@ -21,6 +26,13 @@ export class ApproveProposedAction {
       eventType: "ACTION_APPROVED",
       metadata: { description: action.description },
     });
+
+    const meeting = await this.ctx.repos.meeting.get(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action.meetingId);
+    const meetingTitle = meeting?.title || "Unknown Meeting";
+
+    const slack = new SlackWebhookClient(this.ctx.config.SLACK_WEBHOOK_URL);
+    await slack.sendActionDigest(meetingTitle, action.description, action.ownerName, action.dueDate);
+
     logger.info({ operation: "ApproveProposedAction", correlationId, outcome: "success" }, "action approved");
   }
 }
@@ -37,6 +49,10 @@ export class RejectProposedAction {
     action.status = "REJECTED";
     action.updatedAt = new Date().toISOString();
     await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
+    
+    // Track Rejection Analytics
+    ProductAnalyticsTracker.trackRejection(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, this.ctx.identity.actorId, actionId, reason.trim());
+    
     await this.ctx.repos.meetingAnalysis.saveApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, {
       id: randomUUID(),
       actionId,

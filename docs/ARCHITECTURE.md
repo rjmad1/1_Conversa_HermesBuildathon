@@ -1,79 +1,104 @@
-# Conversa — Architecture (Audio-First)
+# Conversa — System Architecture & Logical Design
 
-**Author role:** Enterprise Architect
-**Status:** Accepted for MVP. See `docs/adr/0002-audio-first-media-scope.md`.
+---
+### 📋 Document Metadata
+- **Purpose**: Canonical architectural specification defining system structure, component boundaries, sequence logic, and C4 context.
+- **Audience**: Solution architects, engineering leads, SREs, and compliance auditors.
+- **Last Generated**: 2026-07-13T05:20:47+05:30
+- **Confidence Level**: High (Grounded directly in router setup, module hierarchy, and sequence definitions).
+- **Evidence Used**: Core routes (`src/app/index.ts`), agency orchestrator (`run-meeting-agency.ts`), and modules.
+- **Cross References**: See [PROJECT.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/PROJECT.md), [SERVICES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/SERVICES.md), [MODULES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/MODULES.md).
+- **Open Questions**: Cryptographic token signature verification implementation.
+- **Known Limitations**: ephemerality of in-memory data; single thread execution.
+- **Recommended Next Actions**: Transition static memory repositories to Convex schema definitions.
+---
 
-## 1. C4 Context (Level 1)
+## 1. C4 Context Diagram (Level 1)
 
-```text
-[Users: PM, EM, Dev, Sales, CS, Exec, IT Admin]
-        │  uses (audio upload / pasted transcript)
-        ▼
-┌──────────────────────────────────────────────────────────┐
-│  CONVERSA PLATFORM (audio-first)                            │
-│    Meeting Service │ Audio Ingestion │ Transcription │      │
-│    Analysis (Agents) │ Memory │ Integration │ Governance    │
-└──────────────────────────────────────────────────────────┘
-        │                                  │
-   integrates (audio/transcript sources)   │ transactional updates
-        ▼                                  ▼
-[Zoom/Teams/Google Meet/Phone]      [Jira/Salesforce/HubSpot/GitHub/Slack]
-        │                                  │
-   (these platforms MAY do video;         [LLM Providers: OpenAI/Wispr/Ollama]
-    Conversa consumes only audio+transcript)
+```mermaid
+graph TD
+    User([Enterprise User / Admin]) -- Ingests Audio / Pastes Transcripts --> Conversa[Conversa Audio-First Platform]
+    Conversa -- Triggers Multi-Agent Crew --> OpenAI[(OpenAI API / LLM)]
+    Conversa -- Logs Immutable Audit Trails --> AuditStore[(In-Memory Audit Repo)]
+    Conversa -- Scopes Identity / RBAC --> AuthAdapter[Prod/Dev Identity Adapter]
+    MeetingPlatforms([Zoom / Teams / Google Meet]) -- Sources of Raw Audio --> Conversa
+    SlackChannel([Slack Channel]) -- Sends Approved Actions Digest --> SlackAPI[Slack Webhook API]
 ```
 
-Meeting platforms are **external sources of audio and transcripts**, not Conversa video features.
+---
 
 ## 2. Component Decomposition
 
-| Service | Responsibility | Notes |
-| --- | --- | --- |
-| Meeting Service | Session/meeting metadata, policy. | Owns `meetingId`. |
-| Audio Ingestion | Validate + persist audio → `AudioAsset`. | Enforces `docs/media-validation.md`. Rejects video (415). |
-| Transcription | `AudioTranscriptionProvider.transcribe()` → `Transcript`. | Swappable; fake provider for tests. |
-| Transcript Normalization | Diarization labels, optional redaction. | |
-| Analysis (Agents) | Reason over validated transcript → proposed actions. | Consumes transcript, NOT raw audio. |
-| Action Approval | Human approve/reject. | Human-in-the-loop. |
-| Memory | Store transcripts/actions/outcomes. | Tenant-scoped. |
-| Integration Fabric | Push approved actions to systems of record. | Idempotent. |
-| Governance | RBAC, audit, retention. | |
+The system is structured as a modular monolith running in serverless-friendly Hono Node.js processes, with the frontend acting as a Vite Vanilla Single Page Application (SPA).
 
-## 3. Data Flow
+| Component | Responsibility | Interfaces | Internal Dependencies |
+| --- | --- | --- | --- |
+| **Hono Backend App** | HTTP Router, Auth guards, Rate limiters, Body limits. | REST Endpoints under `/api/v1/*` | Modules (`meetings`, `media`, `transcription`, `analysis`, `agency`, `approvals`, `audit`) |
+| **Vite Client App** | Client interface, upload forms, audit timelines, agency controls, run comparison. | Browser DOM, Vanilla CSS & JS | Fetch API to REST Router |
+| **Meeting Manager** | CRUD meeting lifecycle and validations. | `CreateMeeting`, `GetMeeting` | `MeetingRepo`, `AuditRepo` |
+| **Ingestion Engine** | Validates media files and scopes storage. | `UploadMeetingAudio` | `AudioAssetRepo`, `InMemoryAudioStorage` |
+| **Transcription Provider** | Interfaces with Whisper to transcribe audio. | `AudioTranscriptionProvider`, `TranscribeMeetingAudio` | `TranscriptRepo`, `OpenAI API` |
+| **Meeting Agency** | Coordinators, specialists planning, handoffs, loops, QA reviewing. | `RunMeetingAgency`, `PlanMeetingAnalysis`, `ExecuteAgentTask`, `ReviewAgentOutput` | `DecisionSpecialist`, `RiskSpecialist`, `ActionSpecialist`, `QAReviewer` |
+| **Approval Guard** | Human approval gates for mutations and actions. | `ApproveProposedAction`, `RejectProposedAction` | `MeetingAnalysisRepo`, `AuditRepo` |
+| **Audit Compliance** | Appends immutable logs of operations. | `RepoAuditPort`, `ListMeetingAuditEvents` | `AuditRepo` |
 
-```text
-audio upload (MP3/WAV/M4A) OR pasted/imported transcript
-   │
-   ├─(audio)─▶ Audio Ingestion ──validate──▶ secure persist (AudioAsset, opaque ref)
-   │                │
-   │                ▼
-   │            Transcription ──▶ Transcript
-   │
-   └─(paste)──▶ Transcript (skip ingestion+transcription)
-                        │
-                        ▼
-                  Transcript Normalization
-                        │
-                        ▼
-                     Analysis (agents) ──▶ proposed ActionItem[]
-                        │
-                        ▼
-                   Action Approval (human) ──▶ Integration Fabric ──▶ Systems of Record
+---
+
+## 3. Data & Control Flow
+
+### 3.1 Audio-to-Action Pipeline
+The sequential process of transforming meeting audio into human-approved action outcomes:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Client User (Approver/Admin)
+    participant Server as Hono Router (index.ts)
+    participant Auth as Identity Adapter
+    participant Ingestion as Ingestion Engine (UploadMeetingAudio)
+    participant Storage as Audio Storage
+    participant Transcribe as Transcription Module (TranscribeMeetingAudio)
+    participant Agency as Agency Crew (RunMeetingAgency)
+    participant DB as InMemory Repositories
+    
+    User->>Server: POST /api/v1/meetings/:meetingId/audio (Form Data)
+    Server->>Auth: resolve(headers)
+    Auth-->>Server: identity (scoped tenant & workspace)
+    Server->>Ingestion: execute(meetingId, fileBytes)
+    Ingestion->>Ingestion: Validate File Size & MIME (MP3/WAV/M4A)
+    Ingestion->>Storage: save(tenant/workspace scoped reference)
+    Ingestion->>DB: save(AudioAsset)
+    Ingestion-->>User: 201 Created (AudioAsset Metadata)
+    
+    User->>Server: POST /api/v1/meetings/:meetingId/transcription
+    Server->>Transcribe: execute(meetingId)
+    Transcribe->>Storage: retrieve(audioBytes)
+    Transcribe->>OpenAI: Whisper-1 transcribe(audioBytes)
+    OpenAI-->>Transcribe: Plain text transcript
+    Transcribe->>DB: save(Transcript)
+    Transcribe-->>User: 200 OK (Transcript Metadata)
+    
+    User->>Server: POST /api/v1/meetings/:meetingId/agency/run
+    Server->>Agency: execute(meetingId, options)
+    Agency->>DB: read(Transcript)
+    Agency->>Agency: PlanMeetingAnalysis (Planner)
+    loop For each Specialist Step (Decision, Risk, Action)
+        Agency->>Agency: ExecuteAgentTask (Specialist LLM call)
+        Agency->>Agency: ReviewAgentOutput (QA Reviewer LLM call)
+        alt Grounding/Policy Fails (Revision)
+            Agency->>Agency: Correct priorFindings (Revision loop)
+        else Escalation Raised
+            Agency->>DB: save(AgencyRun status ESCALATED)
+            Agency-->>User: 200 OK (Escalation Blocker Details)
+        end
+    end
+    Agency->>DB: save(MeetingAnalysis, Decisions, ProposedActions)
+    Agency->>DB: save(AgencyRun status PAUSED)
+    Agency-->>User: 201 Created (Trace & Findings Run)
 ```
 
-## 4. Media Domain Integration
+---
 
-`AudioAsset` specializes `MediaAsset` (see `docs/media-domain-model.md`). `MediaType.AUDIO`
-is the only active value. `VIDEO` is reserved but rejected by validation + feature flag.
-
-## 5. Key Decisions (binding)
-
-- Modality-neutral base (`MediaAsset`) so video can be added later without rework.
-- No business logic in route handlers or UI.
-- Ingestion, transcription, analysis are separate modules (no merging).
-- Object storage holds raw audio; relational/doc record holds metadata + `storageReference` only.
-
-## 6. Open Items (resolved during build)
-
-- **Deployment target — RESOLVED:** **Cloudflare is primary.** See `docs/deployment.md` decision record (Workers + R2 + Pages + KV). Rationale: longer CPU/function limits than Vercel's 60s cap (needed for 10MB Whisper), integrated R2 object storage for audio, partner alignment.
-- **Tenant resolution — RESOLVED:** MVP uses a **single fixed demo tenant** (`tenantId = demo`, `workspaceId = demo`), centralized in one config constant. Multi-tenancy is deferred; the **extension path is header-based** — `X-Tenant-Id` / `X-Workspace-Id` request headers, validated and scoped once auth lands. All `AudioAsset` / `Transcript` / `ActionItem` records are still written with `tenantId`/`workspaceId` (never null), satisfying the "all data tenant-scoped" constraint even in single-tenant MVP. Do not branch logic on "is demo" elsewhere — treat demo as a normal tenant.
+## 4. Logical & Tenancy Scoping
+* **Opaque References**: Raw audio filenames are obfuscated using random UUIDs and isolated directories: `storage/{tenantId}/{workspaceId}/{fileId}`.
+* **Implicit Scoping**: In production, callers are locked into `cfg.DEMO_TENANT_ID` and `cfg.DEMO_WORKSPACE_ID`. Dev headers `x-tenant-id` are ignored, ensuring complete boundary isolation.

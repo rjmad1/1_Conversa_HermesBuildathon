@@ -9,6 +9,7 @@ import type { AgentHandoff } from "../domain/handoff";
 import { AppError, ErrorCode } from "../../../shared/errors/AppError";
 import { estimateCost } from "../../../shared/observability/model-pricing";
 import { logger } from "../../../shared/logging/logger";
+import { LinkupGroundingProvider } from "../../../infrastructure/providers/linkup";
 
 export class RunMeetingAgency {
   private planner: PlanMeetingAnalysis;
@@ -252,14 +253,23 @@ export class RunMeetingAgency {
         meetingId,
         createdAt: now,
       }));
-      const proposedActions = accumulatedFindings.proposedActions.map((a: any) => ({
-        ...a,
-        id: a.id || randomUUID(),
-        meetingId,
-        status: a.status || "PROPOSED",
-        ownerReference: a.ownerReference || null,
-        createdAt: now,
-        updatedAt: now,
+      const grounding = new LinkupGroundingProvider(this.ctx.config.LINKUP_API_KEY);
+      const proposedActions = await Promise.all(accumulatedFindings.proposedActions.map(async (a: any) => {
+        const urls = await grounding.search(a.description);
+        let evidence = a.sourceEvidence || "";
+        if (urls.length > 0) {
+          evidence += "\n\nGrounding Links:\n" + urls.map(url => `- [Grounding Source](${url})`).join("\n");
+        }
+        return {
+          ...a,
+          id: a.id || randomUUID(),
+          meetingId,
+          sourceEvidence: evidence,
+          status: a.status || "PROPOSED",
+          ownerReference: a.ownerReference || null,
+          createdAt: now,
+          updatedAt: now,
+        };
       }));
 
       const finalAnalysis = {

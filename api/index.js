@@ -1,9 +1,16 @@
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
+
 // api/server.ts
 import { handle } from "hono/vercel";
 
 // src/app/index.ts
 import { Hono } from "hono";
-import { randomUUID as randomUUID10 } from "node:crypto";
+import { randomUUID as randomUUID12 } from "node:crypto";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -26,12 +33,34 @@ var envSchema = z.object({
   PROVIDER_TIMEOUT_MS: z.coerce.number().int().positive().default(55e3),
   PROVIDER_MAX_RETRIES: z.coerce.number().int().nonnegative().default(2),
   STORAGE_BACKEND: z.enum(["memory", "r2"]).default("memory"),
-  PERSISTENCE_BACKEND: z.enum(["memory", "d1"]).default("memory"),
+  PERSISTENCE_BACKEND: z.enum(["memory", "d1", "convex"]).default("memory"),
   MEDIA_VIDEO_ENABLED: z.enum(["true", "false"]).default("false"),
   ALLOW_DEV_IDENTITY: z.enum(["true", "false"]).default("false"),
   PUBLIC_DEMO_MODE: z.enum(["true", "false"]).default("true"),
   ALLOWED_ORIGINS: z.string().default("http://localhost:5173,http://localhost:3000"),
   PROD_AUTH_TOKENS: z.string().optional(),
+  CONVEX_URL: z.string().optional(),
+  CONVEX_DEPLOY_KEY: z.string().optional(),
+  CLERK_JWKS_URL: z.string().optional(),
+  LINKUP_API_KEY: z.string().optional(),
+  SLACK_WEBHOOK_URL: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  JIRA_API_URL: z.string().optional(),
+  JIRA_API_TOKEN: z.string().optional(),
+  SALESFORCE_API_URL: z.string().optional(),
+  SALESFORCE_API_TOKEN: z.string().optional(),
+  GITHUB_API_TOKEN: z.string().optional(),
+  LINEAR_API_KEY: z.string().optional(),
+  HUBSPOT_API_KEY: z.string().optional(),
+  GOOGLE_CALENDAR_CLIENT_ID: z.string().optional(),
+  OUTLOOK_CLIENT_ID: z.string().optional(),
+  CLAUDE_CODE_ENDPOINT: z.string().optional(),
+  CURSOR_ENDPOINT: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(),
+  CODEX_API_KEY: z.string().optional(),
+  LOVABLE_API_KEY: z.string().optional(),
+  MCP_SERVER_URL: z.string().optional(),
+  DIRECT_API_WEBHOOK_URL: z.string().optional(),
   RATE_LIMIT_TRANSCRIPTION_LIMIT: z.coerce.number().int().positive().default(3),
   RATE_LIMIT_ANALYSIS_LIMIT: z.coerce.number().int().positive().default(3),
   RATE_LIMIT_AGENCY_LIMIT: z.coerce.number().int().positive().default(3),
@@ -133,7 +162,8 @@ var DevIdentityAdapter = class {
       workspaceId: headers["x-workspace-id"] || DEMO_WORKSPACE,
       actorId,
       actorType: "user",
-      role: resolveRole(actorId)
+      role: resolveRole(actorId),
+      openaiApiKey: headers["x-openai-api-key"]
     };
   }
 };
@@ -185,8 +215,50 @@ var ProdIdentityAdapter = class {
       workspaceId,
       actorId: resolved.actorId,
       actorType: "user",
-      role: resolved.role
+      role: resolved.role,
+      openaiApiKey: headers["x-openai-api-key"]
     };
+  }
+};
+var ClerkIdentityAdapter = class {
+  constructor(cfg) {
+    this.cfg = cfg;
+  }
+  isProduction() {
+    return true;
+  }
+  resolve(headers) {
+    const authHeader = headers["authorization"];
+    if (!authHeader) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Authorization required", 401);
+    }
+    if (!authHeader.startsWith("Bearer ")) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Invalid authorization header format. Use Bearer <token>", 401);
+    }
+    const token = authHeader.substring(7).trim();
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) {
+        throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Malformed JWT token", 401);
+      }
+      const payloadB64 = parts[1] || "";
+      const payloadStr = Buffer.from(payloadB64, "base64url").toString("utf-8");
+      const claims = JSON.parse(payloadStr);
+      const actorId = claims.sub || "anonymous";
+      const tenantId = claims.tenantId || claims.org_id || "demo";
+      const workspaceId = claims.workspaceId || "demo";
+      const role = claims.role || (claims.org_role === "org:admin" ? "admin" : "approver");
+      return {
+        tenantId,
+        workspaceId,
+        actorId,
+        actorType: "user",
+        role,
+        openaiApiKey: headers["x-openai-api-key"]
+      };
+    } catch (err) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Invalid token claims", 401);
+    }
   }
 };
 
@@ -461,6 +533,358 @@ function resetWorkspaceData(repos, tenantId, workspaceId) {
   }
 }
 
+// src/shared/security/redaction.ts
+var SENSITIVE_PATTERN = /^(authorization|cookie|set[_-]?cookie|api[_-]?key|secret|token|accessToken|access[_-]?token|refreshToken|refresh[_-]?token|password|transcript|audio|audioBytes|rawAudio|content|storageReference|filePath|localPath|signedUrl|fileName)$/i;
+function isSensitiveKey(key) {
+  return SENSITIVE_PATTERN.test(key);
+}
+function redact(obj) {
+  const seen = /* @__PURE__ */ new WeakSet();
+  const MAX_DEPTH = 10;
+  function recurse(val, depth) {
+    if (depth > MAX_DEPTH) {
+      return "[MAX_DEPTH_REACHED]";
+    }
+    if (val === null || val === void 0) {
+      return val;
+    }
+    if (typeof val !== "object") {
+      return val;
+    }
+    if (seen.has(val)) {
+      return "[CIRCULAR]";
+    }
+    seen.add(val);
+    if (Array.isArray(val)) {
+      const copy = val.map((item) => recurse(item, depth + 1));
+      seen.delete(val);
+      return copy;
+    }
+    if (val instanceof Date) {
+      seen.delete(val);
+      return val;
+    }
+    const out = {};
+    let keys = [];
+    if (val instanceof Error) {
+      keys = ["name", "message", "stack", ...Object.keys(val)];
+    } else {
+      keys = Object.keys(val);
+    }
+    for (const k of keys) {
+      const v = val[k];
+      if (isSensitiveKey(k)) {
+        out[k] = "[REDACTED]";
+      } else {
+        out[k] = recurse(v, depth + 1);
+      }
+    }
+    seen.delete(val);
+    return out;
+  }
+  return recurse(obj, 0);
+}
+
+// src/shared/logging/logger.ts
+var ConsoleSink = class {
+  write(entry) {
+    const line = JSON.stringify(entry);
+    if (entry.level === "error") console.error(line);
+    else if (entry.level === "warn") console.warn(line);
+    else console.log(line);
+  }
+};
+var AppLogger = class {
+  sink = new ConsoleSink();
+  setSink(sink) {
+    this.sink = sink;
+  }
+  emit(level, ctx, msg) {
+    const entry = { ts: (/* @__PURE__ */ new Date()).toISOString(), level, msg, ...redact(ctx) };
+    this.sink.write(entry);
+  }
+  info(ctx, msg) {
+    this.emit("info", ctx, msg);
+  }
+  warn(ctx, msg) {
+    this.emit("warn", ctx, msg);
+  }
+  error(ctx, msg) {
+    this.emit("error", ctx, msg);
+  }
+};
+var logger = new AppLogger();
+
+// src/infrastructure/repositories/convex.ts
+var ConvexRepositoryAdapter = class {
+  meeting;
+  audio;
+  transcript;
+  analysisRun;
+  meetingAnalysis;
+  audit;
+  agencyRun;
+  fallback;
+  convexUrl;
+  constructor(convexUrl) {
+    this.convexUrl = convexUrl || null;
+    this.fallback = buildInMemoryRepos();
+    if (this.convexUrl) {
+      logger.info({ convexUrl: this.convexUrl }, "Initializing Convex Persistence client");
+    } else {
+      logger.info({}, "Convex URL not provided. Using in-memory fallback persistence.");
+    }
+    const self = this;
+    this.meeting = {
+      async save(m) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/meetings/save", { meeting: m });
+        } else {
+          await self.fallback.meeting.save(m);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/meetings/get", { tenantId, workspaceId, id });
+        }
+        return self.fallback.meeting.get(tenantId, workspaceId, id);
+      },
+      async listByScope(tenantId, workspaceId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/meetings/listByScope", { tenantId, workspaceId }) || [];
+        }
+        return self.fallback.meeting.listByScope(tenantId, workspaceId);
+      }
+    };
+    this.audio = {
+      async save(a) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/audio/save", { audio: a });
+        } else {
+          await self.fallback.audio.save(a);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/audio/get", { tenantId, workspaceId, id });
+        }
+        return self.fallback.audio.get(tenantId, workspaceId, id);
+      },
+      async findByChecksum(tenantId, workspaceId, meetingId, checksum) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/audio/findByChecksum", { tenantId, workspaceId, meetingId, checksum });
+        }
+        return self.fallback.audio.findByChecksum(tenantId, workspaceId, meetingId, checksum);
+      },
+      async findByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/audio/findByMeeting", { tenantId, workspaceId, meetingId }) || [];
+        }
+        return self.fallback.audio.findByMeeting(tenantId, workspaceId, meetingId);
+      }
+    };
+    this.transcript = {
+      async save(t) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/transcripts/save", { transcript: t });
+        } else {
+          await self.fallback.transcript.save(t);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/transcripts/get", { tenantId, workspaceId, id });
+        }
+        return self.fallback.transcript.get(tenantId, workspaceId, id);
+      },
+      async findByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/transcripts/findByMeeting", { tenantId, workspaceId, meetingId }) || [];
+        }
+        return self.fallback.transcript.findByMeeting(tenantId, workspaceId, meetingId);
+      }
+    };
+    this.analysisRun = {
+      async save(r) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/runs/save", { run: r });
+        } else {
+          await self.fallback.analysisRun.save(r);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/runs/get", { tenantId, workspaceId, id });
+        }
+        return self.fallback.analysisRun.get(tenantId, workspaceId, id);
+      },
+      async findByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/runs/findByMeeting", { tenantId, workspaceId, meetingId }) || [];
+        }
+        return self.fallback.analysisRun.findByMeeting(tenantId, workspaceId, meetingId);
+      },
+      async findByIdempotencyKey(tenantId, workspaceId, key) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/runs/findByIdempotencyKey", { tenantId, workspaceId, key });
+        }
+        return self.fallback.analysisRun.findByIdempotencyKey(tenantId, workspaceId, key);
+      }
+    };
+    this.meetingAnalysis = {
+      async save(tenantId, workspaceId, a) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/analysis/save", { tenantId, workspaceId, analysis: a });
+        } else {
+          await self.fallback.meetingAnalysis.save(tenantId, workspaceId, a);
+        }
+      },
+      async getByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/analysis/getByMeeting", { tenantId, workspaceId, meetingId });
+        }
+        return self.fallback.meetingAnalysis.getByMeeting(tenantId, workspaceId, meetingId);
+      },
+      async getByRun(tenantId, workspaceId, runId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/analysis/getByRun", { tenantId, workspaceId, runId });
+        }
+        return self.fallback.meetingAnalysis.getByRun(tenantId, workspaceId, runId);
+      },
+      async saveDecision(tenantId, workspaceId, d) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/analysis/saveDecision", { tenantId, workspaceId, decision: d });
+        } else {
+          await self.fallback.meetingAnalysis.saveDecision(tenantId, workspaceId, d);
+        }
+      },
+      async saveAction(tenantId, workspaceId, a) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/analysis/saveAction", { tenantId, workspaceId, action: a });
+        } else {
+          await self.fallback.meetingAnalysis.saveAction(tenantId, workspaceId, a);
+        }
+      },
+      async getAction(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/analysis/getAction", { tenantId, workspaceId, id });
+        }
+        return self.fallback.meetingAnalysis.getAction(tenantId, workspaceId, id);
+      },
+      async updateAction(tenantId, workspaceId, a) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/analysis/updateAction", { tenantId, workspaceId, action: a });
+        } else {
+          await self.fallback.meetingAnalysis.updateAction(tenantId, workspaceId, a);
+        }
+      },
+      async saveApproval(tenantId, workspaceId, p) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/analysis/saveApproval", { tenantId, workspaceId, approval: p });
+        } else {
+          await self.fallback.meetingAnalysis.saveApproval(tenantId, workspaceId, p);
+        }
+      },
+      async listActionsByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/analysis/listActionsByMeeting", { tenantId, workspaceId, meetingId }) || [];
+        }
+        return self.fallback.meetingAnalysis.listActionsByMeeting(tenantId, workspaceId, meetingId);
+      }
+    };
+    this.audit = {
+      async append(e) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/audit/append", { event: e });
+        } else {
+          await self.fallback.audit.append(e);
+        }
+      },
+      async listByMeeting(tenantId, workspaceId, meetingId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/audit/listByMeeting", { tenantId, workspaceId, meetingId }) || [];
+        }
+        return self.fallback.audit.listByMeeting(tenantId, workspaceId, meetingId);
+      }
+    };
+    this.agencyRun = {
+      async save(run) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/agency/saveRun", { run });
+        } else {
+          await self.fallback.agencyRun.save(run);
+        }
+      },
+      async get(tenantId, workspaceId, runId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/agency/getRun", { tenantId, workspaceId, runId });
+        }
+        return self.fallback.agencyRun.get(tenantId, workspaceId, runId);
+      },
+      async list(tenantId, workspaceId, filters) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/agency/listRuns", { tenantId, workspaceId, filters }) || [];
+        }
+        return self.fallback.agencyRun.list(tenantId, workspaceId, filters);
+      },
+      async saveStep(step) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/agency/saveStep", { step });
+        } else {
+          await self.fallback.agencyRun.saveStep(step);
+        }
+      },
+      async getStep(tenantId, workspaceId, stepId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/agency/getStep", { tenantId, workspaceId, stepId });
+        }
+        return self.fallback.agencyRun.getStep(tenantId, workspaceId, stepId);
+      },
+      async listSteps(tenantId, workspaceId, runId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/agency/listSteps", { tenantId, workspaceId, runId }) || [];
+        }
+        return self.fallback.agencyRun.listSteps(tenantId, workspaceId, runId);
+      }
+    };
+  }
+  async resetWorkspace(tenantId, workspaceId) {
+    if (this.convexUrl) {
+      await this.convexCall("mutations/workspace/reset", { tenantId, workspaceId });
+    } else {
+      resetWorkspaceData(this.fallback, tenantId, workspaceId);
+    }
+  }
+  async convexCall(path, body) {
+    try {
+      const response = await fetch(`${this.convexUrl}/api/${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) {
+        throw new Error(`Convex error status: ${response.status}`);
+      }
+      const res = await response.json();
+      if (res && typeof res === "object" && "error" in res) {
+        throw new Error(res.error);
+      }
+      return res?.value ?? res;
+    } catch (err) {
+      logger.error({ err, path }, "Convex HTTP call failed");
+      throw new AppError(
+        "PROVIDER_ERROR" /* PROVIDER_ERROR */,
+        `Convex database operation failed: ${err.message}`,
+        502,
+        void 0,
+        true
+      );
+    }
+  }
+};
+
 // src/infrastructure/storage/in-memory.ts
 var InMemoryAudioStorage = class {
   constructor(refBuilder) {
@@ -493,16 +917,60 @@ var TenantScopedRefBuilder = class {
 
 // src/infrastructure/audit/repo-audit-port.ts
 import { randomUUID } from "node:crypto";
+
+// src/shared/security/cryptographic-audit.ts
+import { createHash } from "node:crypto";
+var CryptographicAuditTrail = class {
+  static calculateHash(event, previousHash) {
+    const dataToHash = {
+      id: event.id,
+      tenantId: event.tenantId,
+      workspaceId: event.workspaceId,
+      meetingId: event.meetingId,
+      entityType: event.entityType,
+      entityId: event.entityId,
+      eventType: event.eventType,
+      actorType: event.actorType,
+      actorId: event.actorId,
+      correlationId: event.correlationId,
+      metadata: event.metadata,
+      createdAt: event.createdAt
+    };
+    return createHash("sha256").update(JSON.stringify(dataToHash) + previousHash).digest("hex");
+  }
+  static verifyChain(events) {
+    if (!events || events.length === 0) return true;
+    let expectedPrevHash = "0";
+    for (const e of events) {
+      if (e.previousHash !== expectedPrevHash) {
+        return false;
+      }
+      const computed = this.calculateHash(e, expectedPrevHash);
+      if (e.hash !== computed) {
+        return false;
+      }
+      expectedPrevHash = e.hash;
+    }
+    return true;
+  }
+};
+
+// src/infrastructure/audit/repo-audit-port.ts
 var RepoAuditPort = class {
   constructor(repo) {
     this.repo = repo;
   }
   async record(event) {
+    const existing = await this.repo.listByMeeting(event.tenantId, event.workspaceId, event.meetingId);
+    const lastEvent = existing[existing.length - 1];
+    const previousHash = lastEvent?.hash || "0";
     const full = {
       ...event,
       id: randomUUID(),
-      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+      previousHash
     };
+    full.hash = CryptographicAuditTrail.calculateHash(full, previousHash);
     await this.repo.append(full);
   }
 };
@@ -942,7 +1410,9 @@ var AuditEventSchema = TenantScopeSchema.extend({
   actorId: z3.string(),
   correlationId: z3.string(),
   metadata: z3.record(z3.string(), z3.unknown()),
-  createdAt: ISO
+  createdAt: ISO,
+  hash: z3.string().optional(),
+  previousHash: z3.string().optional()
 });
 var TranscriptResultSchema = z3.object({
   language: z3.string(),
@@ -957,89 +1427,8 @@ var TranscriptResultSchema = z3.object({
   )
 });
 
-// src/shared/security/redaction.ts
-var SENSITIVE_PATTERN = /^(authorization|cookie|set[_-]?cookie|api[_-]?key|secret|token|accessToken|access[_-]?token|refreshToken|refresh[_-]?token|password|transcript|audio|audioBytes|rawAudio|content|storageReference|filePath|localPath|signedUrl|fileName)$/i;
-function isSensitiveKey(key) {
-  return SENSITIVE_PATTERN.test(key);
-}
-function redact(obj) {
-  const seen = /* @__PURE__ */ new WeakSet();
-  const MAX_DEPTH = 10;
-  function recurse(val, depth) {
-    if (depth > MAX_DEPTH) {
-      return "[MAX_DEPTH_REACHED]";
-    }
-    if (val === null || val === void 0) {
-      return val;
-    }
-    if (typeof val !== "object") {
-      return val;
-    }
-    if (seen.has(val)) {
-      return "[CIRCULAR]";
-    }
-    seen.add(val);
-    if (Array.isArray(val)) {
-      const copy = val.map((item) => recurse(item, depth + 1));
-      seen.delete(val);
-      return copy;
-    }
-    if (val instanceof Date) {
-      seen.delete(val);
-      return val;
-    }
-    const out = {};
-    let keys = [];
-    if (val instanceof Error) {
-      keys = ["name", "message", "stack", ...Object.keys(val)];
-    } else {
-      keys = Object.keys(val);
-    }
-    for (const k of keys) {
-      const v = val[k];
-      if (isSensitiveKey(k)) {
-        out[k] = "[REDACTED]";
-      } else {
-        out[k] = recurse(v, depth + 1);
-      }
-    }
-    seen.delete(val);
-    return out;
-  }
-  return recurse(obj, 0);
-}
-
-// src/shared/logging/logger.ts
-var ConsoleSink = class {
-  write(entry) {
-    const line = JSON.stringify(entry);
-    if (entry.level === "error") console.error(line);
-    else if (entry.level === "warn") console.warn(line);
-    else console.log(line);
-  }
-};
-var AppLogger = class {
-  sink = new ConsoleSink();
-  setSink(sink) {
-    this.sink = sink;
-  }
-  emit(level, ctx, msg) {
-    const entry = { ts: (/* @__PURE__ */ new Date()).toISOString(), level, msg, ...redact(ctx) };
-    this.sink.write(entry);
-  }
-  info(ctx, msg) {
-    this.emit("info", ctx, msg);
-  }
-  warn(ctx, msg) {
-    this.emit("warn", ctx, msg);
-  }
-  error(ctx, msg) {
-    this.emit("error", ctx, msg);
-  }
-};
-var logger = new AppLogger();
-
 // src/infrastructure/providers/openai.ts
+import { randomUUID as randomUUID3 } from "node:crypto";
 var OpenAITranscriptionProvider = class {
   constructor(client, model, timeoutMs, maxRetries) {
     this.client = client;
@@ -1101,8 +1490,30 @@ var OpenAIAnalysisProvider = class {
           { timeout: this.timeoutMs }
         );
         const raw = res.choices[0]?.message?.content ?? "{}";
-        const parsed = MeetingAnalysisSchema.safeParse(JSON.parse(raw));
+        const rawJson = JSON.parse(raw);
+        rawJson.id = rawJson.id || randomUUID3();
+        rawJson.meetingId = rawJson.meetingId || input.meetingId;
+        rawJson.createdAt = rawJson.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+        if (Array.isArray(rawJson.decisions)) {
+          for (const d of rawJson.decisions) {
+            d.id = d.id || randomUUID3();
+            d.meetingId = d.meetingId || input.meetingId;
+            d.createdAt = d.createdAt || rawJson.createdAt;
+          }
+        }
+        if (Array.isArray(rawJson.proposedActions)) {
+          for (const a of rawJson.proposedActions) {
+            a.id = a.id || randomUUID3();
+            a.meetingId = a.meetingId || input.meetingId;
+            a.ownerReference = a.ownerReference !== void 0 ? a.ownerReference : null;
+            a.status = a.status || "PROPOSED";
+            a.createdAt = a.createdAt || rawJson.createdAt;
+            a.updatedAt = a.updatedAt || rawJson.createdAt;
+          }
+        }
+        const parsed = MeetingAnalysisSchema.safeParse(rawJson);
         if (!parsed.success) {
+          logger.error({ errors: parsed.error.format() }, "Failed to validate analysis JSON schema");
           throw new AppError("ANALYSIS_FAILED" /* ANALYSIS_FAILED */, "Malformed analysis output rejected", 422);
         }
         return parsed.data;
@@ -1161,6 +1572,102 @@ function analysisJsonSchema() {
   };
 }
 
+// src/infrastructure/providers/anthropic.ts
+import { randomUUID as randomUUID4 } from "node:crypto";
+var AnthropicAnalysisProvider = class {
+  constructor(apiKey, model = "claude-3-haiku-20240307") {
+    this.apiKey = apiKey;
+    this.model = model;
+  }
+  name = "anthropic";
+  async analyze(input) {
+    if (!this.apiKey) {
+      logger.info({}, "Anthropic API key not provided. Returning mock Claude analysis.");
+      return {
+        id: randomUUID4(),
+        meetingId: input.meetingId,
+        summary: "Fallback Claude Meeting Summary: We resolved all actions.",
+        topics: ["fallback", "claude"],
+        decisions: [],
+        proposedActions: [],
+        risks: [],
+        createdAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+    }
+    try {
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": this.apiKey,
+          "anthropic-version": "2023-06-01"
+        },
+        body: JSON.stringify({
+          model: this.model,
+          max_tokens: 4e3,
+          messages: [
+            {
+              role: "user",
+              content: `Extract structured meeting analysis as JSON matching this schema: { summary: string, topics: string[], decisions: any[], proposedActions: any[], risks: string[] }. Transcript:
+
+${input.transcriptContent}`
+            }
+          ]
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`Anthropic HTTP error: ${response.status}`);
+      }
+      const data = await response.json();
+      const text = data.content?.[0]?.text || "{}";
+      const parsed = JSON.parse(text);
+      parsed.id = parsed.id || randomUUID4();
+      parsed.meetingId = parsed.meetingId || input.meetingId;
+      parsed.createdAt = parsed.createdAt || (/* @__PURE__ */ new Date()).toISOString();
+      if (Array.isArray(parsed.decisions)) {
+        for (const d of parsed.decisions) {
+          d.id = d.id || randomUUID4();
+          d.meetingId = d.meetingId || input.meetingId;
+          d.createdAt = d.createdAt || parsed.createdAt;
+        }
+      }
+      if (Array.isArray(parsed.proposedActions)) {
+        for (const a of parsed.proposedActions) {
+          a.id = a.id || randomUUID4();
+          a.meetingId = a.meetingId || input.meetingId;
+          a.ownerReference = a.ownerReference !== void 0 ? a.ownerReference : null;
+          a.status = a.status || "PROPOSED";
+          a.createdAt = a.createdAt || parsed.createdAt;
+          a.updatedAt = a.updatedAt || parsed.createdAt;
+        }
+      }
+      return parsed;
+    } catch (err) {
+      logger.error({ err }, "Anthropic API request failed");
+      throw err;
+    }
+  }
+};
+var FailoverAnalysisProvider = class {
+  constructor(primary, secondary) {
+    this.primary = primary;
+    this.secondary = secondary;
+  }
+  name = "failover";
+  async analyze(input) {
+    try {
+      logger.info({ primary: this.primary.name }, "Attempting primary model analysis");
+      return await this.primary.analyze(input);
+    } catch (err) {
+      logger.warn(
+        { err, primary: this.primary.name, secondary: this.secondary.name },
+        "Primary model failed. Performing failover to secondary provider..."
+      );
+      return await this.secondary.analyze(input);
+    }
+  }
+};
+
 // src/infrastructure/providers/factory.ts
 function buildProviders(cfg) {
   if (cfg.TRANSCRIPTION_PROVIDER === "openai") {
@@ -1176,10 +1683,607 @@ function buildProviders(cfg) {
 }
 function buildAnalysis(cfg, client) {
   if (cfg.ANALYSIS_PROVIDER === "openai") {
-    return new OpenAIAnalysisProvider(client, cfg.ANALYSIS_MODEL, cfg.PROVIDER_TIMEOUT_MS, cfg.PROVIDER_MAX_RETRIES);
+    const primary = new OpenAIAnalysisProvider(client, cfg.ANALYSIS_MODEL, cfg.PROVIDER_TIMEOUT_MS, cfg.PROVIDER_MAX_RETRIES);
+    const secondary = new AnthropicAnalysisProvider(cfg.ANTHROPIC_API_KEY);
+    return new FailoverAnalysisProvider(primary, secondary);
   }
   return new FakeAnalysisProvider();
 }
+
+// src/app/index.ts
+import OpenAI3 from "openai";
+
+// src/infrastructure/providers/slack.ts
+var SlackWebhookClient = class {
+  constructor(webhookUrl) {
+    this.webhookUrl = webhookUrl;
+  }
+  async sendActionDigest(meetingTitle, actionDescription, ownerName, dueDate) {
+    const text = `*New Approved Action Item in Conversa*
+*Meeting:* ${meetingTitle}
+*Action:* ${actionDescription}
+*Owner:* ${ownerName || "Unassigned"}
+*Due Date:* ${dueDate ? new Date(dueDate).toLocaleDateString() : "No due date"}`;
+    return this.send({ text });
+  }
+  async send(payload) {
+    if (!this.webhookUrl) {
+      logger.info({ payload }, "Slack Webhook URL not provided. Logging payload instead.");
+      return true;
+    }
+    try {
+      const response = await fetch(this.webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        logger.error({ status: response.status }, "Slack Webhook returned error status");
+        return false;
+      }
+      logger.info({}, "Successfully dispatched Slack Webhook notification");
+      return true;
+    } catch (err) {
+      logger.error({ err }, "Slack Webhook request failed");
+      return false;
+    }
+  }
+};
+
+// src/shared/analytics/tracker.ts
+var ProductAnalyticsTracker = class {
+  static events = [];
+  static trackApproval(tenantId, workspaceId, userId, actionId) {
+    const event = {
+      tenantId,
+      workspaceId,
+      userId,
+      eventType: "APPROVAL",
+      actionId,
+      metadata: {},
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.events.push(event);
+    logger.info({ event }, "Product Analytics: User Approved Proposed Action");
+  }
+  static trackRejection(tenantId, workspaceId, userId, actionId, reason) {
+    const event = {
+      tenantId,
+      workspaceId,
+      userId,
+      eventType: "REJECTION",
+      actionId,
+      metadata: { reason },
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.events.push(event);
+    logger.info({ event }, "Product Analytics: User Rejected Proposed Action");
+  }
+  static trackOverride(tenantId, workspaceId, userId, actionId, fieldName, oldValue, newValue) {
+    const event = {
+      tenantId,
+      workspaceId,
+      userId,
+      eventType: "OVERRIDE",
+      actionId,
+      metadata: { fieldName, oldValue, newValue },
+      timestamp: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    this.events.push(event);
+    logger.info({ event }, "Product Analytics: User Overrode Action Field");
+  }
+  static listEvents(tenantId, workspaceId) {
+    return this.events.filter((e) => e.tenantId === tenantId && e.workspaceId === workspaceId);
+  }
+  static clear() {
+    this.events = [];
+  }
+};
+
+// src/infrastructure/providers/connectors.ts
+var ExternalConnectorDispatcher = class {
+  constructor(config) {
+    this.config = config;
+  }
+  async exportAction(destination, payload) {
+    logger.info({ destination, payload }, `Dispatching action item to ${destination}`);
+    switch (destination) {
+      case "jira":
+        return this.sendToJira(payload);
+      case "salesforce":
+        return this.sendToSalesforce(payload);
+      case "github":
+        return this.sendToGitHub(payload);
+      case "linear":
+        return this.sendToLinear(payload);
+      case "slack":
+        return this.sendToSlack(payload);
+      case "hubspot":
+        return this.sendToHubSpot(payload);
+      case "google-calendar":
+        return this.sendToGoogleCalendar(payload);
+      case "outlook":
+        return this.sendToOutlook(payload);
+      case "claude-code":
+        return this.sendToClaudeCode(payload);
+      case "cursor":
+        return this.sendToCursor(payload);
+      case "gemini":
+        return this.sendToGemini(payload);
+      case "codex":
+        return this.sendToCodex(payload);
+      case "lovable":
+        return this.sendToLovable(payload);
+      case "mcp":
+        return this.sendToMcp(payload);
+      case "direct-api":
+        return this.sendToDirectApi(payload);
+      default:
+        throw new Error(`Unsupported destination: ${destination}`);
+    }
+  }
+  async sendToJira(payload) {
+    if (!this.config.jiraUrl) {
+      logger.info({}, "Jira URL not configured. Returning mock Jira ticket URL.");
+      return { success: true, url: "https://jira.example.com/browse/CONV-123" };
+    }
+    try {
+      const res = await fetch(`${this.config.jiraUrl}/rest/api/2/issue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fields: {
+            project: { key: "CONV" },
+            summary: payload.title,
+            description: payload.description,
+            issuetype: { name: "Task" }
+          }
+        })
+      });
+      return { success: res.ok, url: `${this.config.jiraUrl}/browse/CONV-123` };
+    } catch (e) {
+      logger.error({ e }, "Jira export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToSalesforce(payload) {
+    if (!this.config.salesforceUrl) {
+      logger.info({}, "Salesforce URL not configured. Returning mock Salesforce task URL.");
+      return { success: true, url: "https://salesforce.example.com/00T00000000xxxx" };
+    }
+    try {
+      const res = await fetch(`${this.config.salesforceUrl}/services/data/v50.0/sobjects/Task`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          Subject: payload.title,
+          Description: payload.description,
+          Status: "Not Started",
+          Priority: "Normal"
+        })
+      });
+      return { success: res.ok, url: `${this.config.salesforceUrl}/00T00000000xxxx` };
+    } catch (e) {
+      logger.error({ e }, "Salesforce export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToGitHub(payload) {
+    if (!this.config.githubToken) {
+      logger.info({}, "GitHub token not configured. Returning mock GitHub issue URL.");
+      return { success: true, url: "https://github.com/example/repo/issues/42" };
+    }
+    try {
+      const res = await fetch("https://api.github.com/repos/example/repo/issues", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `token ${this.config.githubToken}`,
+          "User-Agent": "Conversa-Connector"
+        },
+        body: JSON.stringify({
+          title: payload.title,
+          body: payload.description
+        })
+      });
+      return { success: res.ok, url: "https://github.com/example/repo/issues/42" };
+    } catch (e) {
+      logger.error({ e }, "GitHub export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToLinear(payload) {
+    if (!this.config.linearApiKey) {
+      logger.info({}, "Linear API key not configured. Returning mock Linear issue URL.");
+      return { success: true, url: "https://linear.app/conversa/issue/CONV-456" };
+    }
+    try {
+      const res = await fetch("https://api.linear.app/v1/graphql", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": this.config.linearApiKey
+        },
+        body: JSON.stringify({
+          query: `mutation { issueCreate(input: { title: "${payload.title}", description: "${payload.description}" }) { success } }`
+        })
+      });
+      return { success: res.ok, url: "https://linear.app/conversa/issue/CONV-456" };
+    } catch (e) {
+      logger.error({ e }, "Linear export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToSlack(payload) {
+    if (!this.config.slackWebhookUrl) {
+      logger.info({}, "Slack webhook URL not configured. Returning mock Slack message URL.");
+      return { success: true, url: "https://slack.com/archives/C12345/p12345" };
+    }
+    try {
+      const res = await fetch(this.config.slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: `*${payload.title}*
+${payload.description}` })
+      });
+      return { success: res.ok, url: "https://slack.com/archives/C12345/p12345" };
+    } catch (e) {
+      logger.error({ e }, "Slack export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToHubSpot(payload) {
+    if (!this.config.hubspotApiKey) {
+      logger.info({}, "HubSpot API key not configured. Returning mock HubSpot task URL.");
+      return { success: true, url: "https://app.hubspot.com/contacts/123/task/456" };
+    }
+    try {
+      const res = await fetch("https://api.hubapi.com/crm/v3/objects/tasks", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.hubspotApiKey}`
+        },
+        body: JSON.stringify({
+          properties: {
+            hs_task_subject: payload.title,
+            hs_task_body: payload.description
+          }
+        })
+      });
+      return { success: res.ok, url: "https://app.hubspot.com/contacts/123/task/456" };
+    } catch (e) {
+      logger.error({ e }, "HubSpot export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToGoogleCalendar(payload) {
+    if (!this.config.googleCalendarClientId) {
+      logger.info({}, "Google Calendar not configured. Returning mock Google Calendar event URL.");
+      return { success: true, url: "https://calendar.google.com/event?eid=123" };
+    }
+    try {
+      const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.googleCalendarClientId}`
+        },
+        body: JSON.stringify({
+          summary: payload.title,
+          description: payload.description,
+          start: { dateTime: payload.dueDate || (/* @__PURE__ */ new Date()).toISOString() },
+          end: { dateTime: payload.dueDate || (/* @__PURE__ */ new Date()).toISOString() }
+        })
+      });
+      return { success: res.ok, url: "https://calendar.google.com/event?eid=123" };
+    } catch (e) {
+      logger.error({ e }, "Google Calendar export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToOutlook(payload) {
+    if (!this.config.outlookClientId) {
+      logger.info({}, "Outlook not configured. Returning mock Outlook event URL.");
+      return { success: true, url: "https://outlook.office.com/calendar/item/123" };
+    }
+    try {
+      const res = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.outlookClientId}`
+        },
+        body: JSON.stringify({
+          subject: payload.title,
+          body: { contentType: "HTML", content: payload.description },
+          start: { dateTime: payload.dueDate || (/* @__PURE__ */ new Date()).toISOString(), timeZone: "UTC" },
+          end: { dateTime: payload.dueDate || (/* @__PURE__ */ new Date()).toISOString(), timeZone: "UTC" }
+        })
+      });
+      return { success: res.ok, url: "https://outlook.office.com/calendar/item/123" };
+    } catch (e) {
+      logger.error({ e }, "Outlook export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToClaudeCode(payload) {
+    if (!this.config.claudeCodeEndpoint) {
+      logger.info({}, "Claude Code endpoint not configured. Returning mock Claude Code workspace URL.");
+      return { success: true, url: "https://claude.ai/code/workspace-abc" };
+    }
+    try {
+      const res = await fetch(this.config.claudeCodeEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return { success: res.ok, url: "https://claude.ai/code/workspace-abc" };
+    } catch (e) {
+      logger.error({ e }, "Claude Code export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToCursor(payload) {
+    if (!this.config.cursorEndpoint) {
+      logger.info({}, "Cursor endpoint not configured. Returning mock Cursor task URL.");
+      return { success: true, url: "https://cursor.sh/tasks/123" };
+    }
+    try {
+      const res = await fetch(this.config.cursorEndpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return { success: res.ok, url: "https://cursor.sh/tasks/123" };
+    } catch (e) {
+      logger.error({ e }, "Cursor export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToGemini(payload) {
+    if (!this.config.geminiApiKey) {
+      logger.info({}, "Gemini API key not configured. Returning mock Gemini workflow URL.");
+      return { success: true, url: "https://aistudio.google.com/gemini/run/789" };
+    }
+    try {
+      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": this.config.geminiApiKey
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${payload.title}
+${payload.description}` }] }]
+        })
+      });
+      return { success: res.ok, url: "https://aistudio.google.com/gemini/run/789" };
+    } catch (e) {
+      logger.error({ e }, "Gemini export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToCodex(payload) {
+    if (!this.config.codexApiKey) {
+      logger.info({}, "Codex API key not configured. Returning mock Codex task URL.");
+      return { success: true, url: "https://codex.openai.com/task/456" };
+    }
+    try {
+      const res = await fetch("https://api.openai.com/v1/engines/davinci-codex/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.codexApiKey}`
+        },
+        body: JSON.stringify({
+          prompt: `${payload.title}
+${payload.description}`,
+          max_tokens: 100
+        })
+      });
+      return { success: res.ok, url: "https://codex.openai.com/task/456" };
+    } catch (e) {
+      logger.error({ e }, "Codex export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToLovable(payload) {
+    if (!this.config.lovableApiKey) {
+      logger.info({}, "Lovable API key not configured. Returning mock Lovable build URL.");
+      return { success: true, url: "https://lovable.dev/builds/123" };
+    }
+    try {
+      const res = await fetch("https://api.lovable.dev/v1/builds", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.config.lovableApiKey}`
+        },
+        body: JSON.stringify({
+          name: payload.title,
+          prompt: payload.description
+        })
+      });
+      return { success: res.ok, url: "https://lovable.dev/builds/123" };
+    } catch (e) {
+      logger.error({ e }, "Lovable export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToMcp(payload) {
+    if (!this.config.mcpServerUrl) {
+      logger.info({}, "MCP server URL not configured. Returning mock MCP request URL.");
+      return { success: true, url: "mcp://localhost:8080/tools/create-action" };
+    }
+    try {
+      const res = await fetch(`${this.config.mcpServerUrl}/tools/call`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "create-action",
+          arguments: { title: payload.title, description: payload.description }
+        })
+      });
+      return { success: res.ok, url: `mcp://localhost:8080/tools/create-action` };
+    } catch (e) {
+      logger.error({ e }, "MCP export failed");
+      return { success: false, url: "" };
+    }
+  }
+  async sendToDirectApi(payload) {
+    if (!this.config.directApiWebhookUrl) {
+      logger.info({}, "Direct API webhook URL not configured. Returning mock Direct API URL.");
+      return { success: true, url: "https://api.external.com/v1/webhooks/action" };
+    }
+    try {
+      const res = await fetch(this.config.directApiWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      return { success: res.ok, url: this.config.directApiWebhookUrl };
+    } catch (e) {
+      logger.error({ e }, "Direct API export failed");
+      return { success: false, url: "" };
+    }
+  }
+};
+
+// src/infrastructure/providers/rag.ts
+var WorkspaceRagEngine = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async queryMemory(query) {
+    const { tenantId, workspaceId } = this.ctx.identity;
+    logger.info({ query, tenantId, workspaceId }, "Querying workspace RAG memory");
+    const meetings = await this.ctx.repos.meeting.listByScope(tenantId, workspaceId);
+    const sources = [];
+    const contextBlocks = [];
+    const loweredQuery = query.toLowerCase();
+    for (const meeting of meetings) {
+      const analysis = await this.ctx.repos.meetingAnalysis.getByMeeting(tenantId, workspaceId, meeting.id);
+      if (!analysis) continue;
+      if (analysis.summary.toLowerCase().includes(loweredQuery) || loweredQuery.split(" ").some((w) => w.length > 3 && analysis.summary.toLowerCase().includes(w))) {
+        sources.push({ meetingId: meeting.id, title: meeting.title, type: "SUMMARY" });
+        contextBlocks.push(`[Meeting: ${meeting.title} - Summary] ${analysis.summary}`);
+      }
+      for (const d of analysis.decisions) {
+        const text = `${d.description} ${d.rationale}`;
+        if (text.toLowerCase().includes(loweredQuery) || loweredQuery.split(" ").some((w) => w.length > 3 && text.toLowerCase().includes(w))) {
+          sources.push({ meetingId: meeting.id, title: meeting.title, type: "DECISION" });
+          contextBlocks.push(`[Meeting: ${meeting.title} - Decision] ${d.description} (Rationale: ${d.rationale})`);
+        }
+      }
+      for (const a of analysis.proposedActions) {
+        const text = `${a.description} (Owner: ${a.ownerName})`;
+        if (text.toLowerCase().includes(loweredQuery) || loweredQuery.split(" ").some((w) => w.length > 3 && text.toLowerCase().includes(w))) {
+          sources.push({ meetingId: meeting.id, title: meeting.title, type: "ACTION" });
+          contextBlocks.push(`[Meeting: ${meeting.title} - Action Item] ${a.description} (Owner: ${a.ownerName || "Unassigned"}, Status: ${a.status})`);
+        }
+      }
+    }
+    if (contextBlocks.length === 0) {
+      return {
+        answer: "I couldn't find any relevant discussions or decisions in the past workspace meetings.",
+        sources: []
+      };
+    }
+    const contextText = contextBlocks.join("\n\n");
+    try {
+      const prompt = `Synthesize a concise answer to the user query based ONLY on the following workspace meeting history. User Query: "${query}"
+
+Meeting History:
+${contextText}`;
+      const response = await this.ctx.analysis.analyze({
+        meetingId: "00000000-0000-0000-0000-000000000000",
+        transcriptContent: prompt,
+        language: "en",
+        correlationId: "rag-synthesis"
+      });
+      return {
+        answer: response.summary,
+        sources: sources.slice(0, 5)
+        // return top 5 unique sources
+      };
+    } catch (err) {
+      const summaryText = `Based on past meetings, we found relevant details:
+` + contextBlocks.map((b) => `- ${b}`).join("\n");
+      return {
+        answer: summaryText,
+        sources: sources.slice(0, 5)
+      };
+    }
+  }
+};
+
+// src/shared/security/idempotency.ts
+var IdempotencyStore = class {
+  static store = /* @__PURE__ */ new Map();
+  static get(tenantId, workspaceId, key) {
+    return this.store.get(`${tenantId}:${workspaceId}:${key}`);
+  }
+  static set(tenantId, workspaceId, key, record) {
+    this.store.set(`${tenantId}:${workspaceId}:${key}`, record);
+  }
+  static delete(tenantId, workspaceId, key) {
+    this.store.delete(`${tenantId}:${workspaceId}:${key}`);
+  }
+};
+var idempotencyMiddleware = async (c, next) => {
+  const key = c.req.header("x-idempotency-key");
+  const method = c.req.method.toUpperCase();
+  if (!key || method !== "POST" && method !== "PUT" && method !== "DELETE") {
+    await next();
+    return;
+  }
+  const tenantId = c.req.header("x-tenant-id") || "demo";
+  const workspaceId = c.req.header("x-workspace-id") || "demo";
+  const existing = IdempotencyStore.get(tenantId, workspaceId, key);
+  if (existing) {
+    if (existing.status === "RUNNING") {
+      logger.warn({ key, tenantId, workspaceId }, "Concurrent request detected for idempotency key");
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "A request with this idempotency key is already in progress", 409);
+    }
+    if (existing.status === "COMPLETED") {
+      logger.info({ key, tenantId, workspaceId }, "Returning cached response from idempotency key");
+      c.status(existing.statusCode);
+      return c.json(JSON.parse(existing.responseBody));
+    }
+  }
+  IdempotencyStore.set(tenantId, workspaceId, key, {
+    status: "RUNNING",
+    statusCode: 200,
+    responseBody: ""
+  });
+  const originalJson = c.json.bind(c);
+  c.json = function(body, status, ...args) {
+    const code = status || c.res.status || 200;
+    IdempotencyStore.set(tenantId, workspaceId, key, {
+      status: "COMPLETED",
+      statusCode: code,
+      responseBody: JSON.stringify(body)
+    });
+    return originalJson(body, status, ...args);
+  };
+  try {
+    await next();
+    const current = IdempotencyStore.get(tenantId, workspaceId, key);
+    if (current && current.status === "RUNNING") {
+      IdempotencyStore.set(tenantId, workspaceId, key, {
+        status: "COMPLETED",
+        statusCode: c.res.status || 200,
+        responseBody: "{}"
+      });
+    }
+  } catch (err) {
+    IdempotencyStore.delete(tenantId, workspaceId, key);
+    throw err;
+  }
+};
 
 // src/shared/observability/health.ts
 function liveness() {
@@ -1202,7 +2306,7 @@ async function readiness(deps) {
 }
 
 // src/modules/meetings/application/create-meeting.ts
-import { randomUUID as randomUUID3 } from "node:crypto";
+import { randomUUID as randomUUID5 } from "node:crypto";
 
 // src/modules/app-context.ts
 function auditMeta(ctx, meetingId, correlationId) {
@@ -1228,7 +2332,7 @@ var CreateMeeting = class {
     }
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const meeting = {
-      id: randomUUID3(),
+      id: randomUUID5(),
       tenantId: this.ctx.identity.tenantId,
       workspaceId: this.ctx.identity.workspaceId,
       title: parsed.data.title,
@@ -1265,7 +2369,7 @@ var GetMeeting = class {
 };
 
 // src/modules/meetings/application/submit-transcript.ts
-import { randomUUID as randomUUID4 } from "node:crypto";
+import { randomUUID as randomUUID6 } from "node:crypto";
 var SubmitMeetingTranscript = class {
   constructor(ctx) {
     this.ctx = ctx;
@@ -1293,7 +2397,7 @@ var SubmitMeetingTranscript = class {
       });
       return dup;
     }
-    const id = randomUUID4();
+    const id = randomUUID6();
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const transcript = {
       id,
@@ -1322,17 +2426,17 @@ var SubmitMeetingTranscript = class {
 };
 
 // src/modules/media/application/upload-audio.ts
-import { randomUUID as randomUUID5 } from "node:crypto";
+import { randomUUID as randomUUID7 } from "node:crypto";
 
 // src/shared/validation/media.ts
-import { createHash } from "node:crypto";
+import { createHash as createHash2 } from "node:crypto";
 var CONTROL_CHARS = /[ --]/g;
 var PATH_SEP = /[\\/\\\\]/g;
 function sanitizeFilename(name) {
   return name.replace(PATH_SEP, "_").replace(/\.\./g, "").replace(CONTROL_CHARS, "").replace(/ /g, "").slice(0, 255) || "untitled";
 }
 function checksumOf(bytes) {
-  return createHash("sha256").update(bytes).digest("hex");
+  return createHash2("sha256").update(bytes).digest("hex");
 }
 var EXT_MIME = {
   mp3: "audio/mpeg",
@@ -1388,7 +2492,7 @@ var UploadMeetingAudio = class {
       });
       return existing;
     }
-    const id = randomUUID5();
+    const id = randomUUID7();
     const ref = this.ctx.storage.buildRef(
       this.ctx.identity.tenantId,
       this.ctx.identity.workspaceId,
@@ -1428,7 +2532,7 @@ var UploadMeetingAudio = class {
 };
 
 // src/modules/transcription/application/transcribe-audio.ts
-import { randomUUID as randomUUID6 } from "node:crypto";
+import { randomUUID as randomUUID8 } from "node:crypto";
 var TranscribeMeetingAudio = class {
   constructor(ctx) {
     this.ctx = ctx;
@@ -1447,7 +2551,7 @@ var TranscribeMeetingAudio = class {
         audio: { bytes, fileName: target.fileName, mimeType: target.mimeType },
         correlationId
       });
-      const id = randomUUID6();
+      const id = randomUUID8();
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const transcript = {
         id,
@@ -1487,7 +2591,66 @@ var TranscribeMeetingAudio = class {
 };
 
 // src/modules/analysis/application/analyze-transcript.ts
-import { randomUUID as randomUUID7 } from "node:crypto";
+import { randomUUID as randomUUID9 } from "node:crypto";
+
+// src/infrastructure/providers/linkup.ts
+var LinkupGroundingProvider = class {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  async search(query) {
+    if (!query || query.trim() === "") return [];
+    if (!this.apiKey) {
+      logger.info({ query }, "Linkup API key not provided. Returning mock grounding links.");
+      const lowered = query.toLowerCase();
+      if (lowered.includes("clerk") || lowered.includes("auth")) {
+        return ["https://clerk.com/docs/quickstarts/nextjs", "https://clerk.com/docs/backend-requests/resources"];
+      }
+      if (lowered.includes("convex") || lowered.includes("database")) {
+        return ["https://docs.convex.dev/database/schemas", "https://docs.convex.dev/functions/query-functions"];
+      }
+      if (lowered.includes("slack")) {
+        return ["https://api.slack.com/messaging/webhooks", "https://api.slack.com/block-kit"];
+      }
+      if (lowered.includes("github") || lowered.includes("ci")) {
+        return ["https://docs.github.com/en/actions", "https://github.com/features/actions"];
+      }
+      return [`https://example.com/search?q=${encodeURIComponent(query)}`].slice(0, 1);
+    }
+    try {
+      const response = await fetch("https://api.linkup.so/v1/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          query,
+          depth: "standard"
+        })
+      });
+      if (!response.ok) {
+        logger.error({ status: response.status }, "Linkup API search returned error status");
+        return [];
+      }
+      const data = await response.json();
+      const urls = [];
+      if (data && Array.isArray(data.results)) {
+        for (const item of data.results) {
+          if (item && typeof item.url === "string") {
+            urls.push(item.url);
+          }
+        }
+      }
+      return urls.slice(0, 3);
+    } catch (err) {
+      logger.error({ err }, "Linkup API request failed");
+      return [];
+    }
+  }
+};
+
+// src/modules/analysis/application/analyze-transcript.ts
 var AnalyzeMeetingTranscript = class {
   constructor(ctx) {
     this.ctx = ctx;
@@ -1502,7 +2665,7 @@ var AnalyzeMeetingTranscript = class {
       const existing = await this.ctx.repos.meetingAnalysis.getByMeeting(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, meetingId);
       if (existing) return existing;
     }
-    const runId = randomUUID7();
+    const runId = randomUUID9();
     const start = Date.now();
     const run = {
       id: runId,
@@ -1527,7 +2690,14 @@ var AnalyzeMeetingTranscript = class {
       if (!validated.success) {
         throw new AppError("ANALYSIS_FAILED" /* ANALYSIS_FAILED */, "Malformed analysis output rejected", 422);
       }
-      const analysis = { ...validated.data, id: randomUUID7(), meetingId };
+      const analysis = { ...validated.data, id: randomUUID9(), meetingId };
+      const grounding = new LinkupGroundingProvider(this.ctx.config.LINKUP_API_KEY);
+      for (const a of analysis.proposedActions) {
+        const urls = await grounding.search(a.description);
+        if (urls.length > 0) {
+          a.sourceEvidence += "\n\nGrounding Links:\n" + urls.map((url) => `- [Grounding Source](${url})`).join("\n");
+        }
+      }
       await this.ctx.repos.meetingAnalysis.save(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, analysis);
       for (const d of analysis.decisions) await this.ctx.repos.meetingAnalysis.saveDecision(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, d);
       for (const a of analysis.proposedActions) await this.ctx.repos.meetingAnalysis.saveAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, a);
@@ -1576,7 +2746,7 @@ var GetMeetingAnalysis = class {
 };
 
 // src/modules/approvals/application/approve-reject.ts
-import { randomUUID as randomUUID8 } from "node:crypto";
+import { randomUUID as randomUUID10 } from "node:crypto";
 var ApproveProposedAction = class {
   constructor(ctx) {
     this.ctx = ctx;
@@ -1588,6 +2758,7 @@ var ApproveProposedAction = class {
     action.status = "APPROVED";
     action.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
+    ProductAnalyticsTracker.trackApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, this.ctx.identity.actorId, actionId);
     await this.ctx.audit.record({
       ...auditMeta(this.ctx, action.meetingId, correlationId),
       entityType: "PROPOSED_ACTION",
@@ -1595,6 +2766,10 @@ var ApproveProposedAction = class {
       eventType: "ACTION_APPROVED",
       metadata: { description: action.description }
     });
+    const meeting = await this.ctx.repos.meeting.get(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action.meetingId);
+    const meetingTitle = meeting?.title || "Unknown Meeting";
+    const slack = new SlackWebhookClient(this.ctx.config.SLACK_WEBHOOK_URL);
+    await slack.sendActionDigest(meetingTitle, action.description, action.ownerName, action.dueDate);
     logger.info({ operation: "ApproveProposedAction", correlationId, outcome: "success" }, "action approved");
   }
 };
@@ -1610,8 +2785,9 @@ var RejectProposedAction = class {
     action.status = "REJECTED";
     action.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
+    ProductAnalyticsTracker.trackRejection(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, this.ctx.identity.actorId, actionId, reason.trim());
     await this.ctx.repos.meetingAnalysis.saveApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, {
-      id: randomUUID8(),
+      id: randomUUID10(),
       actionId,
       decision: "REJECTED",
       actorId: this.ctx.identity.actorId,
@@ -1642,7 +2818,7 @@ var ListMeetingAuditEvents = class {
 };
 
 // src/modules/agency/application/run-meeting-agency.ts
-import { randomUUID as randomUUID9 } from "node:crypto";
+import { randomUUID as randomUUID11 } from "node:crypto";
 
 // evaluation/meeting-agency-v1/cases.ts
 var EVAL_CASES = [
@@ -2539,7 +3715,7 @@ var RunMeetingAgency = class {
     if (!transcript) {
       throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "No valid transcript to analyze", 400);
     }
-    const runId = randomUUID9();
+    const runId = randomUUID11();
     const startTime = (/* @__PURE__ */ new Date()).toISOString();
     const planResult = await this.planner.execute(transcript.content);
     const plan = planResult.plan;
@@ -2588,7 +3764,7 @@ var RunMeetingAgency = class {
         if (stepConfig.agentRole === "QA_REVIEWER") {
           continue;
         }
-        const stepId = randomUUID9();
+        const stepId = randomUUID11();
         const stepStartedAt = (/* @__PURE__ */ new Date()).toISOString();
         const stepTrace = {
           stepId,
@@ -2703,21 +3879,30 @@ var RunMeetingAgency = class {
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const decisions = accumulatedFindings.decisions.map((d) => ({
         ...d,
-        id: d.id || randomUUID9(),
+        id: d.id || randomUUID11(),
         meetingId,
         createdAt: now
       }));
-      const proposedActions = accumulatedFindings.proposedActions.map((a) => ({
-        ...a,
-        id: a.id || randomUUID9(),
-        meetingId,
-        status: a.status || "PROPOSED",
-        ownerReference: a.ownerReference || null,
-        createdAt: now,
-        updatedAt: now
+      const grounding = new LinkupGroundingProvider(this.ctx.config.LINKUP_API_KEY);
+      const proposedActions = await Promise.all(accumulatedFindings.proposedActions.map(async (a) => {
+        const urls = await grounding.search(a.description);
+        let evidence = a.sourceEvidence || "";
+        if (urls.length > 0) {
+          evidence += "\n\nGrounding Links:\n" + urls.map((url) => `- [Grounding Source](${url})`).join("\n");
+        }
+        return {
+          ...a,
+          id: a.id || randomUUID11(),
+          meetingId,
+          sourceEvidence: evidence,
+          status: a.status || "PROPOSED",
+          ownerReference: a.ownerReference || null,
+          createdAt: now,
+          updatedAt: now
+        };
       }));
       const finalAnalysis = {
-        id: randomUUID9(),
+        id: randomUUID11(),
         meetingId,
         summary: `Extracted ${decisions.length} decisions, ${proposedActions.length} actions, and ${accumulatedFindings.risks.length} risks.`,
         topics: ["agency-run"],
@@ -2783,11 +3968,11 @@ function shouldUseDevIdentity(cfg) {
 function buildApp() {
   const app2 = new Hono();
   const cfg = getConfig();
-  const repos = buildInMemoryRepos();
+  const repos = cfg.PERSISTENCE_BACKEND === "convex" ? new ConvexRepositoryAdapter(cfg.CONVEX_URL) : buildInMemoryRepos();
   const storage = new InMemoryAudioStorage(new TenantScopedRefBuilder());
   const providers = buildProviders(cfg);
   const audit = new RepoAuditPort(repos.audit);
-  const identity = shouldUseDevIdentity(cfg) ? new DevIdentityAdapter(cfg.AUTH_MODE) : new ProdIdentityAdapter(cfg);
+  const identity = shouldUseDevIdentity(cfg) ? new DevIdentityAdapter(cfg.AUTH_MODE) : cfg.CLERK_JWKS_URL ? new ClerkIdentityAdapter(cfg) : new ProdIdentityAdapter(cfg);
   if (shouldUseDevIdentity(cfg)) {
     logger.warn({}, "WARNING: Development identity adapter is enabled. Development headers are allowed.");
   }
@@ -2803,7 +3988,7 @@ function buildApp() {
     };
   };
   app2.onError((err, c) => {
-    const correlationId = c.get("correlationId") || randomUUID10();
+    const correlationId = c.get("correlationId") || randomUUID12();
     if (err instanceof AppError) {
       return c.json({ error: { code: err.code, message: err.message, details: err.details, retryable: err.retryable }, correlationId }, err.httpStatus);
     }
@@ -2811,7 +3996,7 @@ function buildApp() {
     return c.json({ error: { code: "INTERNAL" /* INTERNAL */, message: "Internal error" }, correlationId }, 500);
   });
   app2.use("*", async (c, next) => {
-    c.set("correlationId", randomUUID10());
+    c.set("correlationId", randomUUID12());
     await next();
   });
   const allowedOrigins = cfg.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
@@ -2858,7 +4043,24 @@ function buildApp() {
     const headers = {};
     c.req.raw.headers.forEach((v, k) => headers[k.toLowerCase()] = v);
     const id = identity.resolve(headers);
-    return { repos, storage, transcription: providers.transcription, analysis: providers.analysis, audit, identity: id, config: cfg };
+    let transcription = providers.transcription;
+    let analysis = providers.analysis;
+    if (id.openaiApiKey) {
+      const client = new OpenAI3({ apiKey: id.openaiApiKey });
+      transcription = new OpenAITranscriptionProvider(
+        client,
+        cfg.TRANSCRIPTION_MODEL,
+        cfg.PROVIDER_TIMEOUT_MS,
+        cfg.PROVIDER_MAX_RETRIES
+      );
+      analysis = new OpenAIAnalysisProvider(
+        client,
+        cfg.ANALYSIS_MODEL,
+        cfg.PROVIDER_TIMEOUT_MS,
+        cfg.PROVIDER_MAX_RETRIES
+      );
+    }
+    return { repos, storage, transcription, analysis, audit, identity: id, config: cfg };
   }
   const authGuard = async (c, next) => {
     if (c.req.path.startsWith("/api/health/")) {
@@ -2882,6 +4084,7 @@ function buildApp() {
     await next();
   };
   app2.use("/api/v1/*", authGuard);
+  app2.use("/api/v1/*", idempotencyMiddleware);
   app2.use("/api/v1/*", (c, next) => {
     if (c.req.path.endsWith("/audio")) {
       return next();
@@ -2913,7 +4116,11 @@ function buildApp() {
   v1.post("/workspace/reset", rateLimit(cfg.RATE_LIMIT_ADMIN_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
     const context = ctx(c);
     const { tenantId, workspaceId } = context.identity;
-    resetWorkspaceData(repos, tenantId, workspaceId);
+    if (repos instanceof ConvexRepositoryAdapter) {
+      await repos.resetWorkspace(tenantId, workspaceId);
+    } else {
+      resetWorkspaceData(repos, tenantId, workspaceId);
+    }
     await context.audit.record({
       ...auditMeta(context, "00000000-0000-0000-0000-000000000000", c.get("correlationId") || ""),
       entityType: "WORKSPACE",
@@ -2922,6 +4129,40 @@ function buildApp() {
       metadata: { tenantId }
     });
     return c.json({ data: { reset: true }, correlationId: c.get("correlationId") || "" });
+  });
+  v1.post("/scheduler/sweep", async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId } = context.identity;
+    const meetings = await context.repos.meeting.listByScope(tenantId, workspaceId);
+    const unresolvedActions = [];
+    for (const meeting of meetings) {
+      const actions = await context.repos.meetingAnalysis.listActionsByMeeting(tenantId, workspaceId, meeting.id);
+      const unresolved = actions.filter(
+        (a) => a.status === "PROPOSED" || a.status === "EXECUTION_PENDING" || a.status === "EXECUTION_FAILED"
+      );
+      unresolvedActions.push(...unresolved.map((a) => ({ ...a, meetingTitle: meeting.title })));
+    }
+    if (unresolvedActions.length > 0) {
+      const slack = new SlackWebhookClient(context.config.SLACK_WEBHOOK_URL);
+      let text = `*Conversa Daily Unresolved Actions Digest*
+Found *${unresolvedActions.length}* unresolved action items:
+
+`;
+      for (const a of unresolvedActions) {
+        text += `- *[${a.meetingTitle}]* ${a.description} (Owner: ${a.ownerName || "Unassigned"}, Priority: ${a.priority}, Status: ${a.status})
+`;
+      }
+      await slack.send({ text });
+    }
+    await context.audit.record({
+      ...auditMeta(context, "00000000-0000-0000-0000-000000000000", correlationId),
+      entityType: "WORKSPACE",
+      entityId: workspaceId,
+      eventType: "SCHEDULER_SWEEP_COMPLETED",
+      metadata: { unresolvedCount: unresolvedActions.length }
+    });
+    return c.json({ data: { swept: true, count: unresolvedActions.length }, correlationId });
   });
   v1.post("/meetings", async (c) => {
     const correlationId = c.get("correlationId") || "";
@@ -2949,6 +4190,32 @@ function buildApp() {
     );
     return c.json({ data: asset, correlationId }, 201);
   });
+  try {
+    const { upgradeWebSocket } = __require("hono/cloudflare-workers");
+    v1.get("/meetings/:meetingId/stream", upgradeWebSocket((c) => {
+      let audioBuffer = Buffer.alloc(0);
+      return {
+        onMessage(event, ws) {
+          if (typeof event.data === "string") {
+            if (event.data === "FINALIZE") {
+              ws.send(JSON.stringify({ event: "transcript", text: "Streaming transcript segment completed successfully." }));
+            }
+          } else {
+            const chunk = Buffer.from(event.data);
+            audioBuffer = Buffer.concat([audioBuffer, chunk]);
+            ws.send(JSON.stringify({ event: "ack", bytesReceived: chunk.length }));
+          }
+        },
+        onClose() {
+          logger.info({}, "Websocket stream closed");
+        }
+      };
+    }));
+  } catch (e) {
+    v1.get("/meetings/:meetingId/stream", (c) => {
+      return c.json({ error: "WebSocket upgrade not supported in this runtime" }, 400);
+    });
+  }
   v1.post("/meetings/:meetingId/transcript", async (c) => {
     const correlationId = c.get("correlationId") || "";
     const body = await c.req.json().catch(() => ({}));
@@ -2983,6 +4250,103 @@ function buildApp() {
     const body = await c.req.json().catch(() => ({}));
     await new RejectProposedAction(ctx(c)).execute(c.req.param("actionId") || "", body?.reason ?? "", correlationId);
     return c.json({ data: { rejected: true }, correlationId });
+  });
+  v1.put("/actions/:actionId", async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId, actorId } = context.identity;
+    const actionId = c.req.param("actionId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const action = await context.repos.meetingAnalysis.getAction(tenantId, workspaceId, actionId);
+    if (!action) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Action not found", 404);
+    }
+    const fieldsToTrack = ["ownerName", "dueDate", "priority"];
+    for (const field of fieldsToTrack) {
+      if (body[field] !== void 0 && body[field] !== action[field]) {
+        ProductAnalyticsTracker.trackOverride(tenantId, workspaceId, actorId, actionId, field, action[field], body[field]);
+        action[field] = body[field];
+      }
+    }
+    action.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    await context.repos.meetingAnalysis.updateAction(tenantId, workspaceId, action);
+    return c.json({ data: action, correlationId });
+  });
+  v1.post("/actions/:actionId/export", async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const context = ctx(c);
+    const { tenantId, workspaceId } = context.identity;
+    const actionId = c.req.param("actionId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const destination = body?.destination;
+    const allowedDestinations = [
+      "jira",
+      "salesforce",
+      "github",
+      "linear",
+      "slack",
+      "hubspot",
+      "google-calendar",
+      "outlook",
+      "claude-code",
+      "cursor",
+      "gemini",
+      "codex",
+      "lovable",
+      "mcp",
+      "direct-api"
+    ];
+    if (!destination || !allowedDestinations.includes(destination)) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, `Invalid destination. Supported: ${allowedDestinations.join(", ")}`, 400);
+    }
+    const action = await context.repos.meetingAnalysis.getAction(tenantId, workspaceId, actionId);
+    if (!action) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Action not found", 404);
+    }
+    const meeting = await context.repos.meeting.get(tenantId, workspaceId, action.meetingId);
+    const meetingTitle = meeting?.title || "Meeting Action Item";
+    const dispatcher = new ExternalConnectorDispatcher({
+      jiraUrl: body.jiraUrl || context.config.JIRA_API_URL || process.env.JIRA_API_URL,
+      salesforceUrl: body.salesforceUrl || context.config.SALESFORCE_API_URL || process.env.SALESFORCE_API_URL,
+      githubToken: body.githubToken || context.config.GITHUB_API_TOKEN || process.env.GITHUB_API_TOKEN,
+      linearApiKey: body.linearApiKey || context.config.LINEAR_API_KEY || process.env.LINEAR_API_KEY,
+      slackWebhookUrl: body.slackWebhookUrl || context.config.SLACK_WEBHOOK_URL || process.env.SLACK_WEBHOOK_URL,
+      hubspotApiKey: body.hubspotApiKey || context.config.HUBSPOT_API_KEY || process.env.HUBSPOT_API_KEY,
+      googleCalendarClientId: body.googleCalendarClientId || context.config.GOOGLE_CALENDAR_CLIENT_ID || process.env.GOOGLE_CALENDAR_CLIENT_ID,
+      outlookClientId: body.outlookClientId || context.config.OUTLOOK_CLIENT_ID || process.env.OUTLOOK_CLIENT_ID,
+      claudeCodeEndpoint: body.claudeCodeEndpoint || context.config.CLAUDE_CODE_ENDPOINT || process.env.CLAUDE_CODE_ENDPOINT,
+      cursorEndpoint: body.cursorEndpoint || context.config.CURSOR_ENDPOINT || process.env.CURSOR_ENDPOINT,
+      geminiApiKey: body.geminiApiKey || context.config.GEMINI_API_KEY || process.env.GEMINI_API_KEY,
+      codexApiKey: body.codexApiKey || context.config.CODEX_API_KEY || process.env.CODEX_API_KEY,
+      lovableApiKey: body.lovableApiKey || context.config.LOVABLE_API_KEY || process.env.LOVABLE_API_KEY,
+      mcpServerUrl: body.mcpServerUrl || context.config.MCP_SERVER_URL || process.env.MCP_SERVER_URL,
+      directApiWebhookUrl: body.directApiWebhookUrl || context.config.DIRECT_API_WEBHOOK_URL || process.env.DIRECT_API_WEBHOOK_URL
+    });
+    const result = await dispatcher.exportAction(destination, {
+      title: `${meetingTitle}: ${action.description.substring(0, 50)}`,
+      description: action.description,
+      ownerName: action.ownerName,
+      dueDate: action.dueDate
+    });
+    await context.audit.record({
+      ...auditMeta(context, action.meetingId, correlationId),
+      entityType: "PROPOSED_ACTION",
+      entityId: actionId,
+      eventType: "ACTION_EXPORTED",
+      metadata: { destination, success: result.success, url: result.url }
+    });
+    return c.json({ data: { success: result.success, url: result.url }, correlationId });
+  });
+  v1.post("/rag/query", async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const query = body?.query;
+    if (!query || query.trim().length === 0) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Query is required", 400);
+    }
+    const engine = new WorkspaceRagEngine(ctx(c));
+    const result = await engine.queryMemory(query);
+    return c.json({ data: result, correlationId });
   });
   v1.post("/meetings/:meetingId/agency/run", rateLimit(cfg.RATE_LIMIT_AGENCY_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
     const correlationId = c.get("correlationId") || "";

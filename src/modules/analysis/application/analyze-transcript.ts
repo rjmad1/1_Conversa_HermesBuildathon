@@ -5,6 +5,7 @@ import type { AnalysisRun, MeetingAnalysis } from "../../../shared/validation/sc
 import { MeetingAnalysisSchema } from "../../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../../shared/errors/AppError";
 import { logger } from "../../../shared/logging/logger";
+import { LinkupGroundingProvider } from "../../../infrastructure/providers/linkup";
 
 export class AnalyzeMeetingTranscript {
   constructor(private readonly ctx: AppContext) {}
@@ -48,6 +49,14 @@ export class AnalyzeMeetingTranscript {
         throw new AppError(ErrorCode.ANALYSIS_FAILED, "Malformed analysis output rejected", 422);
       }
       const analysis: MeetingAnalysis = { ...validated.data, id: randomUUID(), meetingId };
+      const grounding = new LinkupGroundingProvider(this.ctx.config.LINKUP_API_KEY);
+      for (const a of analysis.proposedActions) {
+        const urls = await grounding.search(a.description);
+        if (urls.length > 0) {
+          a.sourceEvidence += "\n\nGrounding Links:\n" + urls.map(url => `- [Grounding Source](${url})`).join("\n");
+        }
+      }
+
       await this.ctx.repos.meetingAnalysis.save(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, analysis);
       for (const d of analysis.decisions) await this.ctx.repos.meetingAnalysis.saveDecision(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, d);
       for (const a of analysis.proposedActions) await this.ctx.repos.meetingAnalysis.saveAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, a);
