@@ -3,36 +3,35 @@ import { buildApp } from "../../src/app";
 import OpenAI from "openai";
 
 vi.mock("openai", () => {
+  const MockOpenAI = vi.fn(function(this: any, config: any) {
+    this.apiKey = config?.apiKey;
+    this.audio = {
+      transcriptions: {
+        create: vi.fn().mockResolvedValue({ text: "BYOK transcription content" }),
+      },
+    };
+    this.chat = {
+      completions: {
+        create: vi.fn().mockResolvedValue({
+          choices: [
+            {
+              message: {
+                content: JSON.stringify({
+                  summary: "BYOK meeting summary",
+                  topics: ["BYOK Topic"],
+                  decisions: [],
+                  proposedActions: [],
+                  risks: [],
+                }),
+              },
+            },
+          ],
+        }),
+      },
+    };
+  });
   return {
-    default: vi.fn().mockImplementation((config) => {
-      return {
-        apiKey: config.apiKey,
-        audio: {
-          transcriptions: {
-            create: vi.fn().mockResolvedValue({ text: "BYOK transcription content" }),
-          },
-        },
-        chat: {
-          completions: {
-            create: vi.fn().mockResolvedValue({
-              choices: [
-                {
-                  message: {
-                    content: JSON.stringify({
-                      summary: "BYOK meeting summary",
-                      topics: ["BYOK Topic"],
-                      decisions: [],
-                      proposedActions: [],
-                      risks: [],
-                    }),
-                  },
-                },
-              ],
-            }),
-          },
-        },
-      };
-    }),
+    default: MockOpenAI
   };
 });
 
