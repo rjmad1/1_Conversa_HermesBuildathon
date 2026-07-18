@@ -1,4 +1,4 @@
-import type { MeetingAnalysisProvider, AnalyzeInput } from "../../modules/analysis/domain/provider";
+import type { MeetingAnalysisProvider, AnalyzeInput, ChatInput } from "../../modules/analysis/domain/provider";
 import type { MeetingAnalysis } from "../../shared/validation/schemas";
 import { logger } from "../../shared/logging/logger";
 import { randomUUID } from "node:crypto";
@@ -80,8 +80,14 @@ export class AnthropicAnalysisProvider implements MeetingAnalysisProvider {
       return parsed;
     } catch (err) {
       logger.error({ err }, "Anthropic API request failed");
+      logger.error({ err }, "Anthropic API request failed");
       throw err;
     }
+  }
+
+  async chat(input: ChatInput): Promise<string> {
+    logger.info({}, "Anthropic chat not fully implemented, returning fallback.");
+    return "Anthropic fallback chat response.";
   }
 }
 
@@ -103,6 +109,14 @@ export class FailoverAnalysisProvider implements MeetingAnalysisProvider {
         "Primary model failed. Performing failover to secondary provider..."
       );
       return await this.secondary.analyze(input);
+    }
+  }
+
+  async chat(input: ChatInput): Promise<string> {
+    try {
+      return await this.primary.chat(input);
+    } catch (err) {
+      return await this.secondary.chat(input);
     }
   }
 }

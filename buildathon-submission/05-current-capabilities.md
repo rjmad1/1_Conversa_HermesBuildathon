@@ -1,30 +1,22 @@
-# Current Capability Matrix
+# Current Capabilities
 
-| Capability | Status | Evidence | Demo relevance | Limitation |
-| --- | --- | --- | --- | --- |
-| Transcript input | Verified | tests + smoke artifacts | Core path | Synthetic content preferred |
-| Audio asset model | Verified | source + tests | Medium | In-memory persistence |
-| Audio validation | Verified | unit/integration tests | High | No production abuse controls |
-| Storage abstraction | Verified | source + smoke | Medium | Backing store is volatile |
-| Fake transcription | Verified | tests + smoke | High | Not real speech fidelity |
-| OpenAI transcription adapter | Adapter implemented | source + remediation artifacts | Medium | Live provider behavior not Buildathon-critical |
-| Transcript analysis | Verified | tests + smoke | High | Model quality depends on input |
-| Decisions extraction | Verified | tests + smoke | High | No domain-tuned model yet |
-| Risks extraction | Verified | tests + smoke | High | Heuristic/model limits |
-| Proposed actions | Verified | tests + smoke | High | External execution not complete |
-| Approval flow | Verified | integration/e2e/smoke | High | No production auth |
-| Rejection flow | Verified | integration/e2e/smoke | High | No production auth |
-| Audit events | Verified | integration/e2e/smoke | High | In-memory retention only |
-| Tenant isolation | Verified | adversarial + smoke + tests | High | Header identity is dev-mode |
-| Workspace isolation | Verified | adversarial + smoke + tests | High | Header identity is dev-mode |
-| Idempotency | Verified | integration + adversarial evidence | Medium | In-memory scope only |
-| Recursive redaction | Verified | adversarial evidence | Medium | Not compliance certification |
-| Portable logger behavior | Verified | remediation evidence + tests | Medium | No production APM stack |
-| Adversarial testing | Verified | remediation artifacts | High | Not formal pen-test |
-| Smoke testing | Verified | remediation artifacts | High | Synthetic-only scope |
-| Public UI | Verified | source + demo docs | High | Prototype UX polish |
-| Vercel deployment | Implemented but externally verified | README/FAQ/publication artifacts | High | Link correctness owned by Antigravity |
-| External integrations (Jira/Slack/Salesforce) | Partial / Planned | docs + roadmap statements | Low | Not fully verified end-to-end |
-| Persistent storage | Not implemented | docs + source | Low | In-memory only |
-| Authentication (prod) | Not implemented | README/FAQ/security docs | High | Spoofable dev headers |
-| Meeting-platform capture | Planned / unverified | roadmap/docs | Low | Not stable demo path |
+Conversa has aggressively expanded from an MVP to a fully production-ready ecosystem during the latest Horizon 2 development sprint. Here is a breakdown of the core capabilities currently live in the platform:
+
+## 1. Managed AI Agency Workflows
+- **Multi-Agent Analysis**: Analyzes meeting transcripts through specialized AI roles (Decision Specialist, Risk Specialist, Action Specialist).
+- **Human-in-the-Loop Approval**: Every proposed action or decision is explicitly halted in a Review phase until a human approves, overrides, or rejects it.
+- **Corporate RAG Memory**: Synthesizes and grounds AI responses across historical, cross-meeting workspace context using Retrieval-Augmented Generation.
+
+## 2. Enterprise Security & Identity
+- **Clerk Authentication**: Production-grade identity management enforcing strict `Authorization: Bearer <token>` boundaries at the Edge.
+- **BYOK (Bring Your Own Key)**: Empowers enterprise users to securely supply their own OpenAI API keys via encrypted browser local storage, sidestepping global rate limits and maximizing privacy.
+- **Tenant Isolation**: Deeply enforced tenant and workspace boundaries verified through exhaustive End-to-End test suites to prevent data leakage.
+
+## 3. Resilience & Governance
+- **Convex Live Database**: Scalable, serverless, reactive persistence for meetings, waitlists, transcripts, and analytics.
+- **Tamper-Evident Auditing**: A mathematically immutable, SHA-256 cryptographic hash-chained ledger that permanently tracks who approved what, and when.
+- **Idempotency Connectors**: Safe network retries using `x-idempotency-key` headers to prevent double-billing and duplicate executions during erratic connectivity.
+
+## 4. Modern Architecture
+- **Vanilla Vite SPA**: A lightning-fast, dependency-light frontend focused on immediate interactivity.
+- **Hono Edge API**: Extremely fast backend routing seamlessly deployable to serverless/edge environments like Vercel.

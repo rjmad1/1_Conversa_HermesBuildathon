@@ -11,12 +11,15 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "vitest run tests/e2e",
     "eval:agency": "npx tsx evaluation/run-eval.ts",
+    "eval:intelligence": "npx tsx evaluation/run-intel-eval.ts",
     "build": "tsc --noEmit && vite build && npx esbuild api/server.ts --bundle --platform=node --format=esm --target=node20 --outfile=api/index.js --packages=external",
     "dev": "vite",
     "serve": "vite preview"
   },
   "dependencies": {
+    "@clerk/clerk-js": "^6.25.5",
     "@hono/node-server": "^2.0.8",
+    "convex": "^1.42.3",
     "hono": "^4.6.0",
     "openai": "^4.67.0",
     "zod": "^3.23.8"

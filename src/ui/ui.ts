@@ -1,7 +1,31 @@
 // Conversa UI — Managed AI Agency control panel & run trace interface.
+import { Clerk } from "@clerk/clerk-js";
+
 const API = "/api/v1";
 
-type TabState = "workflow" | "agency-control" | "agency-runs" | "tools";
+const pubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_sample";
+const clerk = new Clerk(pubKey);
+
+// BYOK & Auth Interceptor
+const originalFetch = window.fetch;
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  init = init || {};
+  init.headers = new Headers(init.headers || {});
+  
+  const token = await clerk.session?.getToken();
+  if (token) {
+    init.headers.set("Authorization", `Bearer ${token}`);
+  }
+  
+  const byok = localStorage.getItem("conversa_openai_key");
+  if (byok) {
+    init.headers.set("x-openai-api-key", byok);
+  }
+  
+  return originalFetch(input, init);
+};
+
+type TabState = "workflow" | "agency-control" | "agency-runs" | "tools" | "waitlist" | "intelligence" | "settings";
 
 type AppState = {
   meetingId?: string;
@@ -13,6 +37,8 @@ type AppState = {
   analysis?: any;
   audit?: any[];
   stage?: string;
+  chatSessionId?: string;
+  chatMessages?: { role: string, content: string }[];
 
   // Agency state
   runs: any[];
@@ -44,6 +70,7 @@ let state: AppState = {
     confidenceThreshold: 0.8,
     approvalRequirement: true,
   },
+  chatMessages: [],
 };
 
 function el(html: string): HTMLElement {
@@ -58,11 +85,18 @@ function escapeHtml(s: string): string {
 }
 
 // Bind navigation tabs
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await clerk.load();
+  if (!clerk.user) {
+    clerk.redirectToSignIn();
+    return;
+  }
+
   const tabWorkflow = document.getElementById("tab-workflow");
   const tabAgencyControl = document.getElementById("tab-agency-control");
   const tabAgencyRuns = document.getElementById("tab-agency-runs");
   const tabTools = document.getElementById("tab-tools");
+  const tabWaitlist = document.getElementById("tab-waitlist");
 
   tabWorkflow?.addEventListener("click", () => {
     state.activeTab = "workflow";
@@ -90,11 +124,32 @@ document.addEventListener("DOMContentLoaded", () => {
     render();
   });
 
+  tabWaitlist?.addEventListener("click", () => {
+    state.activeTab = "waitlist";
+    setActiveTabButton("tab-waitlist");
+    render();
+  });
+
+  const tabIntelligence = document.getElementById("tab-intelligence");
+  tabIntelligence?.addEventListener("click", async () => {
+    state.activeTab = "intelligence";
+    setActiveTabButton("tab-intelligence");
+    await fetchCompetitors();
+    render();
+  });
+
+  const tabSettings = document.getElementById("tab-settings");
+  tabSettings?.addEventListener("click", () => {
+    state.activeTab = "settings";
+    setActiveTabButton("tab-settings");
+    render();
+  });
+
   render();
 });
 
 function setActiveTabButton(activeId: string) {
-  ["tab-workflow", "tab-agency-control", "tab-agency-runs", "tab-tools"].forEach((id) => {
+  ["tab-workflow", "tab-agency-control", "tab-agency-runs", "tab-tools", "tab-waitlist", "tab-intelligence", "tab-settings"].forEach((id) => {
     const btn = document.getElementById(id);
     if (btn) {
       if (id === activeId) {
@@ -169,11 +224,56 @@ function render() {
     app.appendChild(screenAgencyRuns());
   } else if (state.activeTab === "tools") {
     app.appendChild(screenTools());
+  } else if (state.activeTab === "waitlist") {
+    app.appendChild(screenWaitlist());
+  } else if (state.activeTab === "intelligence") {
+    app.appendChild(screenIntelligence());
+  } else if (state.activeTab === "settings") {
+    app.appendChild(screenSettings());
   }
 }
 
+function screenSettings(): HTMLElement {
+  const container = el(`<div class="card">
+    <h2>Workspace Settings</h2>
+    <p class="muted">Manage your API keys and identity preferences.</p>
+    <div style="margin-top: 20px;">
+      <label for="byok-input" style="font-weight: bold; display: block; margin-bottom: 8px;">Bring Your Own Key (BYOK) - OpenAI</label>
+      <input type="password" id="byok-input" placeholder="sk-..." style="width: 100%; padding: 10px; border-radius: 6px;" />
+      <p style="font-size: 12px; color: #888; margin-top: 6px;">Stored securely in your browser's localStorage. Unlocks unlimited meeting analysis.</p>
+    </div>
+    <button id="save-settings-btn" class="btn btn-primary" style="margin-top: 15px;">Save Settings</button>
+    <div id="settings-feedback" style="margin-top: 10px; color: #2ecc71; display: none;">Saved successfully!</div>
+  </div>`);
+
+  const input = container.querySelector("#byok-input") as HTMLInputElement;
+  const savedKey = localStorage.getItem("conversa_openai_key");
+  if (savedKey) input.value = savedKey;
+
+  container.querySelector("#save-settings-btn")?.addEventListener("click", () => {
+    localStorage.setItem("conversa_openai_key", input.value.trim());
+    const feedback = container.querySelector("#settings-feedback") as HTMLElement;
+    feedback.style.display = "block";
+    setTimeout(() => { feedback.style.display = "none"; }, 3000);
+  });
+
+  return container;
+}
+
 function header(): HTMLElement {
-  return el(`<h1>Conversa <span class="badge">managed-agency</span></h1>`);
+  const h = el(`<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+    <h1>Conversa <span class="badge">managed-agency</span></h1>
+    <div id="user-button"></div>
+  </div>`);
+
+  setTimeout(() => {
+    const userBtn = h.querySelector("#user-button");
+    if (userBtn && clerk && clerk.user) {
+      clerk.mountUserButton(userBtn as HTMLDivElement);
+    }
+  }, 100);
+
+  return h;
 }
 
 function screenSetup(): HTMLElement {
@@ -413,6 +513,80 @@ function screenReview(): HTMLElement {
       }, 50);
     }
   });
+
+  // Chat UI Component
+  const chatCard = el(`<div class="card" style="margin-top: 24px; border: 2px solid var(--accent);">
+    <h3>Ask Conversa (Q&A)</h3>
+    <div id="chat-messages" style="max-height: 300px; overflow-y: auto; margin-bottom: 12px; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 8px; display: flex; flex-direction: column; gap: 8px;">
+      <div class="muted" style="text-align: center;">Ask a question about this meeting...</div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <input id="chat-input" type="text" placeholder="e.g., What was the main takeaway?" style="flex: 1;" />
+      <button id="chat-send-btn">Send</button>
+    </div>
+  </div>`);
+
+  const chatContainer = chatCard.querySelector("#chat-messages")!;
+  const chatInput = chatCard.querySelector("#chat-input") as HTMLInputElement;
+  const chatSendBtn = chatCard.querySelector("#chat-send-btn") as HTMLButtonElement;
+
+  function renderMessages() {
+    chatContainer.innerHTML = "";
+    if (!state.chatMessages || state.chatMessages.length === 0) {
+      chatContainer.appendChild(el(`<div class="muted" style="text-align: center;">Ask a question about this meeting...</div>`));
+      return;
+    }
+    for (const msg of state.chatMessages) {
+      const isUser = msg.role === "user";
+      const bubble = el(`<div style="align-self: ${isUser ? "flex-end" : "flex-start"}; background: ${isUser ? "var(--accent)" : "rgba(255,255,255,0.1)"}; padding: 8px 12px; border-radius: 12px; max-width: 80%;">
+        <strong>${isUser ? "You" : "Conversa"}</strong><br/>
+        <span style="white-space: pre-wrap;">${escapeHtml(msg.content)}</span>
+      </div>`);
+      chatContainer.appendChild(bubble);
+    }
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+
+  async function sendChatMessage() {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    if (!state.chatMessages) state.chatMessages = [];
+    state.chatMessages.push({ role: "user", content: text });
+    chatInput.value = "";
+    chatInput.disabled = true;
+    chatSendBtn.disabled = true;
+    renderMessages();
+
+    try {
+      const res = await fetch(`${API}/meetings/${state.meetingId}/chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ message: text, sessionId: state.chatSessionId })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || "Failed to send message");
+      
+      state.chatSessionId = json.data.sessionId;
+      state.chatMessages.push({ role: "assistant", content: json.data.reply });
+    } catch (e) {
+      state.chatMessages.push({ role: "system", content: `Error: ${(e as Error).message}` });
+    } finally {
+      chatInput.disabled = false;
+      chatSendBtn.disabled = false;
+      chatInput.focus();
+      renderMessages();
+    }
+  }
+
+  chatSendBtn.addEventListener("click", sendChatMessage);
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") sendChatMessage();
+  });
+
+  renderMessages();
+  card.appendChild(chatCard);
+
   const auditBtn = el(`<button class="secondary">View audit timeline</button>`);
   auditBtn.addEventListener("click", async () => {
     const res = await fetch(`${API}/meetings/${state.meetingId}/audit`);
@@ -890,4 +1064,313 @@ if (versionEl) {
 const commitEl = document.querySelector(".commit-sha");
 if (commitEl) {
   commitEl.textContent = "dev";
+}
+
+function screenWaitlist(): HTMLElement {
+  const card = el(`<div class="card">
+    <h2>Conversa Waitlist</h2>
+    <p class="muted" style="margin-bottom: 20px;">Join our exclusive waitlist for early access to the Conversa Audio-First meeting intelligence pilot program.</p>
+    <div id="waitlist-feedback" class="card" hidden style="padding: 15px; margin: 15px 0;"></div>
+    <form id="waitlist-form">
+      <label for="w-email">Email Address</label>
+      <input type="email" id="w-email" required placeholder="name@company.com" aria-label="Waitlist Email" style="margin-bottom: 15px;" />
+      <button type="submit">Join Waitlist</button>
+    </form>
+  </div>`);
+
+  const form = card.querySelector("#waitlist-form") as HTMLFormElement;
+  const feedback = card.querySelector("#waitlist-feedback") as HTMLDivElement;
+
+  form?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    state.error = undefined;
+    if (feedback) {
+      feedback.hidden = true;
+      feedback.className = "card";
+    }
+
+    const emailInput = card.querySelector("#w-email") as HTMLInputElement;
+    const email = emailInput?.value || "";
+
+    try {
+      const res = await fetch(`${API}/waitlist`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error?.message || "Failed to register email");
+
+      if (feedback) {
+        feedback.innerText = "Success! You have been added to the waitlist.";
+        feedback.classList.add("clay-green");
+        feedback.hidden = false;
+      }
+      if (emailInput) emailInput.value = "";
+    } catch (err) {
+      if (feedback) {
+        feedback.innerText = (err as Error).message;
+        feedback.classList.add("clay-pink");
+        feedback.hidden = false;
+      }
+    }
+  });
+
+  return card;
+}
+
+async function fetchCompetitors() {
+  try {
+    const res = await fetch(`${API}/intelligence/competitors`, {
+      headers: { "X-Tenant-Id": "demo", "X-Workspace-Id": "demo", "X-Actor-Id": "dev-user" }
+    });
+    if (!res.ok) throw new Error("Failed to fetch competitors");
+    const json = await res.json();
+    (state as any).competitors = json.data || [];
+    if ((state as any).competitors && (state as any).competitors.length > 0 && !(state as any).selectedCompetitorId) {
+      (state as any).selectedCompetitorId = (state as any).competitors[0].id;
+    }
+    if ((state as any).selectedCompetitorId) {
+      await fetchBattlecard((state as any).selectedCompetitorId);
+      await fetchSweepRuns((state as any).selectedCompetitorId);
+    }
+  } catch (err) {
+    console.error("Error fetching competitors:", err);
+  }
+}
+
+async function fetchBattlecard(competitorId: string) {
+  try {
+    const res = await fetch(`${API}/intelligence/competitors/${competitorId}/battlecard`, {
+      headers: { "X-Tenant-Id": "demo", "X-Workspace-Id": "demo", "X-Actor-Id": "dev-user" }
+    });
+    if (!res.ok) throw new Error("Failed to fetch battlecard");
+    const json = await res.json();
+    (state as any).battlecard = json.data;
+  } catch (err) {
+    console.error("Error fetching battlecard:", err);
+  }
+}
+
+async function fetchSweepRuns(competitorId: string) {
+  try {
+    const res = await fetch(`${API}/intelligence/competitors/${competitorId}/runs`, {
+      headers: { "X-Tenant-Id": "demo", "X-Workspace-Id": "demo", "X-Actor-Id": "dev-user" }
+    });
+    if (!res.ok) throw new Error("Failed to fetch runs");
+    const json = await res.json();
+    (state as any).sweepRuns = json.data || [];
+  } catch (err) {
+    console.error("Error fetching runs:", err);
+  }
+}
+
+function screenIntelligence(): HTMLElement {
+  const container = el(`<div style="display: flex; flex-direction: column; gap: 20px;"></div>`);
+
+  if (!(state as any).selectedCompetitorId) {
+    const configForm = el(`<div class="card">
+      <h2>Configure Competitor</h2>
+      <p class="muted">Set up your competitor's information to enable competitive intelligence sweeps.</p>
+      <form id="competitor-form" style="display: flex; flex-direction: column; gap: 15px;">
+        <div>
+          <label for="c-display-name">Display Name</label>
+          <input type="text" id="c-display-name" required placeholder="Tana" value="Tana" style="width: 100%;" />
+        </div>
+        <div>
+          <label for="c-pricing-url">Pricing Page URL</label>
+          <input type="url" id="c-pricing-url" required placeholder="https://tana.inc/pricing" value="https://tana.inc/pricing" style="width: 100%;" />
+        </div>
+        <div>
+          <label for="c-changelog-url">Changelog URL</label>
+          <input type="url" id="c-changelog-url" required placeholder="https://tana.inc/changelog" value="https://tana.inc/changelog" style="width: 100%;" />
+        </div>
+        <div>
+          <label for="c-news-url">Newsroom URL</label>
+          <input type="url" id="c-news-url" required placeholder="https://tana.inc/news" value="https://tana.inc/news" style="width: 100%;" />
+        </div>
+        <div>
+          <label for="c-search-terms">Search Terms (Comma-separated)</label>
+          <input type="text" id="c-search-terms" placeholder="tana ai, commands, scheduling" value="tana ai, commands, scheduling" style="width: 100%;" />
+        </div>
+        <button type="submit">Configure Competitor</button>
+      </form>
+    </div>`);
+
+    const form = configForm.querySelector("#competitor-form") as HTMLFormElement;
+    form?.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const displayName = (configForm.querySelector("#c-display-name") as HTMLInputElement).value;
+      const pricingUrl = (configForm.querySelector("#c-pricing-url") as HTMLInputElement).value;
+      const changelogUrl = (configForm.querySelector("#c-changelog-url") as HTMLInputElement).value;
+      const newsUrl = (configForm.querySelector("#c-news-url") as HTMLInputElement).value;
+      const termsStr = (configForm.querySelector("#c-search-terms") as HTMLInputElement).value;
+      const searchTerms = termsStr.split(",").map((s) => s.trim()).filter(Boolean);
+
+      try {
+        const res = await fetch(`${API}/intelligence/competitors`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "X-Tenant-Id": "demo",
+            "X-Workspace-Id": "demo",
+            "X-Actor-Id": "dev-user"
+          },
+          body: JSON.stringify({ displayName, pricingUrl, changelogUrl, newsUrl, searchTerms }),
+        });
+        if (!res.ok) throw new Error("Failed to configure competitor");
+        await fetchCompetitors();
+        render();
+      } catch (err) {
+        alert((err as Error).message);
+      }
+    });
+
+    container.appendChild(configForm);
+    return container;
+  }
+
+  const competitor = (state as any).competitors?.find((c: any) => c.id === (state as any).selectedCompetitorId);
+  const card = (state as any).battlecard;
+
+  const header = el(`<div class="card" style="display: flex; justify-content: space-between; align-items: center;">
+    <div>
+      <h2 style="margin: 0;">Competitor Battlecard: ${competitor?.displayName || "Tana"}</h2>
+      <p class="muted" style="margin: 5px 0 0 0;">Last Successful Sweep: ${card?.lastSuccessfulSweepAt ? new Date(card.lastSuccessfulSweepAt).toLocaleString() : "Never"}</p>
+    </div>
+    <div style="display: flex; gap: 10px; align-items: center;">
+      <span class="badge" style="padding: 6px 12px; border-radius: 4px; font-weight: bold; background-color: ${(state as any).sweepStatus === "running" ? "#e67e22" : "#2ecc71"}; color: #fff;">
+        ${(state as any).sweepStatus === "running" ? "Sweeping..." : "Idle"}
+      </span>
+      <button id="run-sweep-btn" class="btn btn-primary" ${(state as any).sweepStatus === "running" ? "disabled" : ""}>Run Sweep</button>
+      <button id="run-sweep-change-btn" class="btn btn-secondary" ${(state as any).sweepStatus === "running" ? "disabled" : ""} style="background-color: #9b59b6; color: #fff;">Run Sweep (pricing change)</button>
+    </div>
+  </div>`);
+
+  const sweepBtn = header.querySelector("#run-sweep-btn") as HTMLButtonElement;
+  sweepBtn?.addEventListener("click", () => triggerSweep(false));
+
+  const sweepChangeBtn = header.querySelector("#run-sweep-change-btn") as HTMLButtonElement;
+  sweepChangeBtn?.addEventListener("click", () => triggerSweep(true));
+
+  container.appendChild(header);
+
+  async function triggerSweep(simulateChange: boolean) {
+    (state as any).sweepStatus = "running";
+    render();
+    try {
+      const pricingUrl = simulateChange
+        ? `${competitor.pricingUrl}#change`
+        : competitor.pricingUrl;
+      const changelogUrl = simulateChange
+        ? `${competitor.changelogUrl}#change`
+        : competitor.changelogUrl;
+      const newsUrl = simulateChange
+        ? `${competitor.newsUrl}#change`
+        : competitor.newsUrl;
+
+      await fetch(`${API}/intelligence/competitors`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Tenant-Id": "demo",
+          "X-Workspace-Id": "demo",
+          "X-Actor-Id": "dev-user"
+        },
+        body: JSON.stringify({
+          id: competitor.id,
+          displayName: competitor.displayName,
+          pricingUrl,
+          changelogUrl,
+          newsUrl,
+          searchTerms: competitor.searchTerms,
+        }),
+      });
+
+      const res = await fetch(`${API}/intelligence/competitors/${(state as any).selectedCompetitorId}/sweeps`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "X-Tenant-Id": "demo",
+          "X-Workspace-Id": "demo",
+          "X-Actor-Id": "dev-user"
+        },
+        body: JSON.stringify({ useFixture: true }),
+      });
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error?.message || "Sweep failed");
+      }
+      (state as any).sweepStatus = "success";
+    } catch (err) {
+      (state as any).sweepStatus = "failed";
+      alert((err as Error).message);
+    } finally {
+      await fetchCompetitors();
+      render();
+    }
+  }
+
+  const body = el(`<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="card">
+        <h3>Verified Positioning</h3>
+        <p>${card?.positioning || "No verified positioning. Trigger a sweep to analyze."}</p>
+      </div>
+
+      <div class="card">
+        <h3>Latest Sweep Findings</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px;">
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+            <strong style="display: block; margin-bottom: 5px;">Pricing findings</strong>
+            <p style="font-size: 0.9em; margin: 0;">${card?.latestPricingFindings || "None"}</p>
+          </div>
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+            <strong style="display: block; margin-bottom: 5px;">Changelog findings</strong>
+            <p style="font-size: 0.9em; margin: 0;">${card?.latestChangelogFindings || "None"}</p>
+          </div>
+          <div style="padding: 10px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+            <strong style="display: block; margin-bottom: 5px;">News findings</strong>
+            <p style="font-size: 0.9em; margin: 0;">${card?.latestNewsFindings || "None"}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Analyst Implications</h3>
+        <p>${card?.analystImplications || "No analyst implications generated yet."}</p>
+        <h4 style="margin: 15px 0 5px 0;">Latest Material Changes</h4>
+        <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.95em; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin: 0;">${card?.latestMaterialChanges || "No changes recorded."}</pre>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+      <div class="card">
+        <h3>Source Links</h3>
+        <ul style="padding-left: 20px; margin: 10px 0 0 0; display: flex; flex-direction: column; gap: 8px;">
+          ${card?.sourceLinks && card.sourceLinks.length > 0
+            ? card.sourceLinks.map((link: any) => `<li><a href="${link.url}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.title)}</a></li>`).join("")
+            : `<li class="muted">No sources linked yet</li>`}
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Sweep Run Logs</h3>
+        <div style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+          ${(state as any).sweepRuns && (state as any).sweepRuns.length > 0
+            ? (state as any).sweepRuns.map((r: any) => `<div style="padding: 8px; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px;">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 0.85em;">
+                  <span>Run ID: ${r.runId.slice(0, 8)}</span>
+                  <span style="color: ${r.status === "completed" ? "#2ecc71" : r.status === "failed" ? "#e74c3c" : "#f1c40f"};">${r.status.toUpperCase()}</span>
+                </div>
+                <div style="font-size: 0.8em; color: #aaa; margin-top: 4px;">Started: ${new Date(r.startedAt).toLocaleTimeString()}</div>
+              </div>`).join("")
+            : `<div class="muted">No runs logged yet</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`);
+
+  container.appendChild(body);
+  return container;
 }

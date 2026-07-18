@@ -29,12 +29,14 @@ import { UploadMeetingAudio } from "../modules/media/application/upload-audio";
 import { TranscribeMeetingAudio } from "../modules/transcription/application/transcribe-audio";
 import { AnalyzeMeetingTranscript } from "../modules/analysis/application/analyze-transcript";
 import { GetMeetingAnalysis } from "../modules/analysis/application/get-analysis";
+import { ChatWithMeeting } from "../modules/analysis/application/chat-with-meeting";
 import { ApproveProposedAction, RejectProposedAction } from "../modules/approvals/application/approve-reject";
 import { ListMeetingAuditEvents } from "../modules/audit/application/list-audit";
 import { RunMeetingAgency } from "../modules/agency/application/run-meeting-agency";
 import { auditMeta } from "../modules/app-context";
 import { InMemoryRateLimiter } from "../shared/security/rate-limit";
 import type { AppEnv as ConfigEnv } from "../shared/config/env";
+import { buildIntelligenceRoutes } from "../modules/competitive-intelligence/presentation/routes";
 
 type AppVars = { correlationId: string };
 type AppEnv = { Variables: AppVars };
@@ -168,7 +170,7 @@ export function buildApp(): Hono<AppEnv> {
 
   // Centralized Authorization middleware
   const authGuard = async (c: Context<AppEnv>, next: () => Promise<void>) => {
-    if (c.req.path.startsWith("/api/health/")) {
+    if (c.req.path.startsWith("/api/health/") || c.req.path.endsWith("/waitlist")) {
       await next();
       return;
     }
@@ -368,6 +370,18 @@ export function buildApp(): Hono<AppEnv> {
   v1.get("/meetings/:meetingId/analysis", async (c) => {
     const a = await new GetMeetingAnalysis(ctx(c)).execute(c.req.param("meetingId") || "");
     return c.json({ data: a, correlationId: (c.get("correlationId") as string) || "" });
+  });
+
+  v1.post("/meetings/:meetingId/chat", rateLimit(cfg.RATE_LIMIT_ANALYSIS_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    const message = body.message;
+    if (!message || typeof message !== "string") {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Missing or invalid chat message", 400);
+    }
+    const sessionId = body.sessionId;
+    const result = await new ChatWithMeeting(ctx(c)).execute(c.req.param("meetingId") || "", message, sessionId, correlationId);
+    return c.json({ data: result, correlationId }, 200);
   });
 
   v1.get("/meetings/:meetingId/audit", async (c) => {
@@ -596,6 +610,51 @@ export function buildApp(): Hono<AppEnv> {
 
     return c.json({ data: { retried: true }, correlationId: (c.get("correlationId") as string) || "" });
   });
+
+  v1.post("/waitlist", rateLimit(cfg.RATE_LIMIT_AGENCY_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    const email = body.email;
+    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid email address", 400);
+    }
+
+    const context = ctx(c);
+    const tenantId = context.identity.tenantId || "demo";
+    const workspaceId = context.identity.workspaceId || "demo";
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existing = await context.repos.waitlist.getByEmail(tenantId, workspaceId, normalizedEmail);
+    if (!existing) {
+      await context.repos.waitlist.save({
+        id: randomUUID(),
+        tenantId,
+        workspaceId,
+        email: normalizedEmail,
+        createdAt: new Date().toISOString(),
+        source: body.source || null,
+        campaign: body.campaign || null,
+        consent: body.consent !== false,
+      });
+    }
+
+    await audit.record({
+      tenantId,
+      workspaceId,
+      actorId: context.identity.actorId || "anonymous",
+      actorType: context.identity.actorType || "user",
+      meetingId: "waitlist",
+      correlationId,
+      entityType: "WAITLIST_SIGNUP",
+      entityId: normalizedEmail,
+      eventType: "EMAIL_CAPTURED",
+      metadata: { email: normalizedEmail, source: body.source || null, campaign: body.campaign || null },
+    });
+
+    return c.json({ data: { registered: true }, correlationId });
+  });
+
+  v1.route("/intelligence", buildIntelligenceRoutes(ctx));
 
   app.route("/api/v1", v1);
   return app;

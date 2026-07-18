@@ -8,6 +8,7 @@ import type {
   ProposedAction,
   ApprovalDecision,
   AuditEvent,
+  WaitlistEntry,
 } from "../../../shared/validation/schemas";
 
 export interface MeetingRepo {
@@ -53,6 +54,13 @@ export interface AuditRepo {
   listByMeeting(tenantId: string, workspaceId: string, meetingId: string): Promise<AuditEvent[]>;
 }
 
+export interface WaitlistRepo {
+  save(entry: WaitlistEntry): Promise<void>;
+  getByEmail(tenantId: string, workspaceId: string, email: string): Promise<WaitlistEntry | null>;
+  list(tenantId: string, workspaceId: string): Promise<WaitlistEntry[]>;
+}
+
 export interface UnitOfWork {
   commit(): Promise<void>;
 }
+

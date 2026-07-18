@@ -9,6 +9,7 @@ describe("Model Failover Integration", () => {
     const mockPrimary: MeetingAnalysisProvider = {
       name: "openai",
       analyze: vi.fn().mockRejectedValue(new Error("OpenAI API rate limit exceeded")),
+      chat: vi.fn(),
     };
 
     const mockSecondaryAnalysis: MeetingAnalysis = {
@@ -25,6 +26,7 @@ describe("Model Failover Integration", () => {
     const mockSecondary: MeetingAnalysisProvider = {
       name: "anthropic",
       analyze: vi.fn().mockResolvedValue(mockSecondaryAnalysis),
+      chat: vi.fn(),
     };
 
     const failoverProvider = new FailoverAnalysisProvider(mockPrimary, mockSecondary);

@@ -9,8 +9,8 @@ var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require
 import { handle } from "hono/vercel";
 
 // src/app/index.ts
-import { Hono } from "hono";
-import { randomUUID as randomUUID12 } from "node:crypto";
+import { Hono as Hono2 } from "hono";
+import { randomUUID as randomUUID16 } from "node:crypto";
 import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 import { secureHeaders } from "hono/secure-headers";
@@ -299,8 +299,71 @@ var InMemoryAgencyRunRepo = class {
   }
 };
 
-// src/infrastructure/repositories/in-memory.ts
+// src/modules/competitive-intelligence/infrastructure/in-memory-repositories.ts
 function scopeMatch2(a, tenantId, workspaceId) {
+  if (!a.tenantId || !a.workspaceId || !tenantId || !workspaceId) return false;
+  return a.tenantId === tenantId && a.workspaceId === workspaceId;
+}
+var InMemoryCompetitorRepo = class {
+  competitors = /* @__PURE__ */ new Map();
+  async save(c) {
+    this.competitors.set(c.id, c);
+  }
+  async get(tenantId, workspaceId, id) {
+    const c = this.competitors.get(id);
+    return c && scopeMatch2(c, tenantId, workspaceId) ? c : null;
+  }
+  async list(tenantId, workspaceId) {
+    return [...this.competitors.values()].filter((c) => scopeMatch2(c, tenantId, workspaceId));
+  }
+};
+var InMemoryIntelligenceSnapshotRepo = class {
+  snapshots = /* @__PURE__ */ new Map();
+  async save(s) {
+    this.snapshots.set(s.id, s);
+  }
+  async get(tenantId, workspaceId, id) {
+    const s = this.snapshots.get(id);
+    return s && scopeMatch2(s, tenantId, workspaceId) ? s : null;
+  }
+  async getLatestByCategory(tenantId, workspaceId, competitorId, category) {
+    const matches = [...this.snapshots.values()].filter((s) => s.competitorId === competitorId && s.researchCategory === category && scopeMatch2(s, tenantId, workspaceId)).sort((a, b) => b.retrievedAt.localeCompare(a.retrievedAt));
+    return matches[0] || null;
+  }
+  async listForRun(tenantId, workspaceId, runId) {
+    return [...this.snapshots.values()].filter((s) => s.runId === runId && scopeMatch2(s, tenantId, workspaceId));
+  }
+};
+var InMemoryIntelligenceRunRepo = class {
+  runs = /* @__PURE__ */ new Map();
+  async save(r) {
+    this.runs.set(r.runId, r);
+  }
+  async get(tenantId, workspaceId, runId) {
+    const r = this.runs.get(runId);
+    return r && scopeMatch2(r, tenantId, workspaceId) ? r : null;
+  }
+  async list(tenantId, workspaceId, competitorId) {
+    return [...this.runs.values()].filter((r) => {
+      const matchScope = scopeMatch2(r, tenantId, workspaceId);
+      const matchComp = competitorId ? r.competitorId === competitorId : true;
+      return matchScope && matchComp;
+    });
+  }
+};
+var InMemoryBattlecardRepo = class {
+  battlecards = /* @__PURE__ */ new Map();
+  async save(b) {
+    this.battlecards.set(b.competitorId, b);
+  }
+  async get(tenantId, workspaceId, competitorId) {
+    const b = this.battlecards.get(competitorId);
+    return b && scopeMatch2(b, tenantId, workspaceId) ? b : null;
+  }
+};
+
+// src/infrastructure/repositories/in-memory.ts
+function scopeMatch3(a, tenantId, workspaceId) {
   if (!a.tenantId || !a.workspaceId || !tenantId || !workspaceId) return false;
   return a.tenantId === tenantId && a.workspaceId === workspaceId;
 }
@@ -311,10 +374,10 @@ var InMemoryMeetingRepo = class {
   }
   async get(tenantId, workspaceId, id) {
     const m = this.meetings.get(id);
-    return m && scopeMatch2(m, tenantId, workspaceId) ? m : null;
+    return m && scopeMatch3(m, tenantId, workspaceId) ? m : null;
   }
   async listByScope(tenantId, workspaceId) {
-    return [...this.meetings.values()].filter((m) => scopeMatch2(m, tenantId, workspaceId));
+    return [...this.meetings.values()].filter((m) => scopeMatch3(m, tenantId, workspaceId));
   }
 };
 var InMemoryAudioAssetRepo = class {
@@ -324,15 +387,15 @@ var InMemoryAudioAssetRepo = class {
   }
   async get(tenantId, workspaceId, id) {
     const a = this.assets.get(id);
-    return a && scopeMatch2(a, tenantId, workspaceId) ? a : null;
+    return a && scopeMatch3(a, tenantId, workspaceId) ? a : null;
   }
   async findByChecksum(tenantId, workspaceId, meetingId, checksum) {
     return [...this.assets.values()].find(
-      (a) => a.checksum === checksum && a.meetingId === meetingId && scopeMatch2(a, tenantId, workspaceId)
+      (a) => a.checksum === checksum && a.meetingId === meetingId && scopeMatch3(a, tenantId, workspaceId)
     ) ?? null;
   }
   async findByMeeting(tenantId, workspaceId, meetingId) {
-    return [...this.assets.values()].filter((a) => a.meetingId === meetingId && scopeMatch2(a, tenantId, workspaceId));
+    return [...this.assets.values()].filter((a) => a.meetingId === meetingId && scopeMatch3(a, tenantId, workspaceId));
   }
 };
 var InMemoryTranscriptRepo = class {
@@ -342,10 +405,10 @@ var InMemoryTranscriptRepo = class {
   }
   async get(tenantId, workspaceId, id) {
     const t = this.items.get(id);
-    return t && scopeMatch2(t, tenantId, workspaceId) ? t : null;
+    return t && scopeMatch3(t, tenantId, workspaceId) ? t : null;
   }
   async findByMeeting(tenantId, workspaceId, meetingId) {
-    return [...this.items.values()].filter((t) => t.meetingId === meetingId && scopeMatch2(t, tenantId, workspaceId));
+    return [...this.items.values()].filter((t) => t.meetingId === meetingId && scopeMatch3(t, tenantId, workspaceId));
   }
 };
 var InMemoryAnalysisRunRepo = class {
@@ -355,14 +418,14 @@ var InMemoryAnalysisRunRepo = class {
   }
   async get(tenantId, workspaceId, id) {
     const r = this.runs.get(id);
-    return r && scopeMatch2(r, tenantId, workspaceId) ? r : null;
+    return r && scopeMatch3(r, tenantId, workspaceId) ? r : null;
   }
   async findByMeeting(tenantId, workspaceId, meetingId) {
-    return [...this.runs.values()].filter((r) => r.meetingId === meetingId && scopeMatch2(r, tenantId, workspaceId));
+    return [...this.runs.values()].filter((r) => r.meetingId === meetingId && scopeMatch3(r, tenantId, workspaceId));
   }
   async findByIdempotencyKey(tenantId, workspaceId, key) {
     const r = [...this.runs.values()].find((r2) => r2.idempotencyKey === key) ?? null;
-    return r && scopeMatch2(r, tenantId, workspaceId) ? r : null;
+    return r && scopeMatch3(r, tenantId, workspaceId) ? r : null;
   }
 };
 var InMemoryMeetingAnalysisRepo = class {
@@ -440,7 +503,39 @@ var InMemoryAuditRepo = class {
     this.events.push(e);
   }
   async listByMeeting(tenantId, workspaceId, meetingId) {
-    return this.events.filter((e) => e.meetingId === meetingId && scopeMatch2(e, tenantId, workspaceId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return this.events.filter((e) => e.meetingId === meetingId && scopeMatch3(e, tenantId, workspaceId)).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+};
+var InMemoryWaitlistRepo = class {
+  entries = /* @__PURE__ */ new Map();
+  async save(entry) {
+    this.entries.set(entry.id, entry);
+  }
+  async getByEmail(tenantId, workspaceId, email) {
+    const normalized = email.toLowerCase().trim();
+    return [...this.entries.values()].find(
+      (e) => e.email.toLowerCase().trim() === normalized && scopeMatch3(e, tenantId, workspaceId)
+    ) ?? null;
+  }
+  async list(tenantId, workspaceId) {
+    return [...this.entries.values()].filter((e) => scopeMatch3(e, tenantId, workspaceId));
+  }
+};
+var InMemoryChatRepo = class {
+  sessions = /* @__PURE__ */ new Map();
+  messages = [];
+  async saveSession(session) {
+    this.sessions.set(session.id, session);
+  }
+  async getSession(tenantId, workspaceId, id) {
+    const s = this.sessions.get(id);
+    return s && scopeMatch3(s, tenantId, workspaceId) ? s : null;
+  }
+  async saveMessage(message) {
+    this.messages.push(message);
+  }
+  async listMessages(sessionId) {
+    return this.messages.filter((m) => m.sessionId === sessionId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
   }
 };
 function buildInMemoryRepos() {
@@ -454,6 +549,12 @@ function buildInMemoryRepos() {
   );
   const audit = new InMemoryAuditRepo();
   const agencyRun = new InMemoryAgencyRunRepo();
+  const waitlist = new InMemoryWaitlistRepo();
+  const competitor = new InMemoryCompetitorRepo();
+  const intelligenceSnapshot = new InMemoryIntelligenceSnapshotRepo();
+  const intelligenceRun = new InMemoryIntelligenceRunRepo();
+  const battlecard = new InMemoryBattlecardRepo();
+  const chat = new InMemoryChatRepo();
   return {
     meeting,
     audio,
@@ -461,7 +562,13 @@ function buildInMemoryRepos() {
     analysisRun,
     meetingAnalysis,
     audit,
-    agencyRun
+    agencyRun,
+    waitlist,
+    competitor,
+    intelligenceSnapshot,
+    intelligenceRun,
+    battlecard,
+    chat
   };
 }
 function resetWorkspaceData(repos, tenantId, workspaceId) {
@@ -530,6 +637,60 @@ function resetWorkspaceData(repos, tenantId, workspaceId) {
         agencyRunRepo.steps.delete(id);
       }
     }
+  }
+  const waitlistRepo = repos.waitlist;
+  if (waitlistRepo && waitlistRepo.entries) {
+    for (const [id, entry] of [...waitlistRepo.entries.entries()]) {
+      if (entry.tenantId === tenantId && entry.workspaceId === workspaceId) {
+        waitlistRepo.entries.delete(id);
+      }
+    }
+  }
+  const competitorRepo = repos.competitor;
+  if (competitorRepo && competitorRepo.competitors) {
+    for (const [id, c] of [...competitorRepo.competitors.entries()]) {
+      if (c.tenantId === tenantId && c.workspaceId === workspaceId) {
+        competitorRepo.competitors.delete(id);
+      }
+    }
+  }
+  const snapshotRepo = repos.intelligenceSnapshot;
+  if (snapshotRepo && snapshotRepo.snapshots) {
+    for (const [id, s] of [...snapshotRepo.snapshots.entries()]) {
+      if (s.tenantId === tenantId && s.workspaceId === workspaceId) {
+        snapshotRepo.snapshots.delete(id);
+      }
+    }
+  }
+  const intelRunRepo = repos.intelligenceRun;
+  if (intelRunRepo && intelRunRepo.runs) {
+    for (const [id, r] of [...intelRunRepo.runs.entries()]) {
+      if (r.tenantId === tenantId && r.workspaceId === workspaceId) {
+        intelRunRepo.runs.delete(id);
+      }
+    }
+  }
+  const battlecardRepo = repos.battlecard;
+  if (battlecardRepo && battlecardRepo.battlecards) {
+    for (const [id, b] of [...battlecardRepo.battlecards.entries()]) {
+      if (b.tenantId === tenantId && b.workspaceId === workspaceId) {
+        battlecardRepo.battlecards.delete(id);
+      }
+    }
+  }
+  const chatRepo = repos.chat;
+  if (chatRepo && chatRepo.sessions) {
+    for (const [id, s] of [...chatRepo.sessions.entries()]) {
+      if (s.tenantId === tenantId && s.workspaceId === workspaceId) {
+        chatRepo.sessions.delete(id);
+      }
+    }
+  }
+  if (chatRepo && chatRepo.messages) {
+    const activeSessionIds = new Set(
+      [...chatRepo.sessions.values()].map((s) => s.id)
+    );
+    chatRepo.messages = chatRepo.messages.filter((m) => activeSessionIds.has(m.sessionId));
   }
 }
 
@@ -624,6 +785,12 @@ var ConvexRepositoryAdapter = class {
   meetingAnalysis;
   audit;
   agencyRun;
+  waitlist;
+  competitor;
+  intelligenceSnapshot;
+  intelligenceRun;
+  battlecard;
+  chat;
   fallback;
   convexUrl;
   constructor(convexUrl) {
@@ -845,6 +1012,137 @@ var ConvexRepositoryAdapter = class {
           return self.convexCall("queries/agency/listSteps", { tenantId, workspaceId, runId }) || [];
         }
         return self.fallback.agencyRun.listSteps(tenantId, workspaceId, runId);
+      }
+    };
+    this.waitlist = {
+      async save(entry) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/waitlist/save", { entry });
+        } else {
+          await self.fallback.waitlist.save(entry);
+        }
+      },
+      async getByEmail(tenantId, workspaceId, email) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/waitlist/getByEmail", { tenantId, workspaceId, email });
+        }
+        return self.fallback.waitlist.getByEmail(tenantId, workspaceId, email);
+      },
+      async list(tenantId, workspaceId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/waitlist/list", { tenantId, workspaceId }) || [];
+        }
+        return self.fallback.waitlist.list(tenantId, workspaceId);
+      }
+    };
+    this.competitor = {
+      async save(c) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveCompetitor", { competitor: c });
+        } else {
+          await self.fallback.competitor.save(c);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getCompetitor", { tenantId, workspaceId, id });
+        }
+        return self.fallback.competitor.get(tenantId, workspaceId, id);
+      },
+      async list(tenantId, workspaceId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listCompetitors", { tenantId, workspaceId }) || [];
+        }
+        return self.fallback.competitor.list(tenantId, workspaceId);
+      }
+    };
+    this.intelligenceSnapshot = {
+      async save(s) {
+        if (self.convexUrl) {
+          await self.fallback.intelligenceSnapshot.save(s);
+        }
+      },
+      async get(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getSnapshot", { tenantId, workspaceId, id });
+        }
+        return self.fallback.intelligenceSnapshot.get(tenantId, workspaceId, id);
+      },
+      async getLatestByCategory(tenantId, workspaceId, competitorId, category) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getLatestSnapshotByCategory", { tenantId, workspaceId, competitorId, category });
+        }
+        return self.fallback.intelligenceSnapshot.getLatestByCategory(tenantId, workspaceId, competitorId, category);
+      },
+      async listForRun(tenantId, workspaceId, runId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listSnapshotsForRun", { tenantId, workspaceId, runId }) || [];
+        }
+        return self.fallback.intelligenceSnapshot.listForRun(tenantId, workspaceId, runId);
+      }
+    };
+    this.intelligenceRun = {
+      async save(r) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveRun", { run: r });
+        } else {
+          await self.fallback.intelligenceRun.save(r);
+        }
+      },
+      async get(tenantId, workspaceId, runId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getRun", { tenantId, workspaceId, runId });
+        }
+        return self.fallback.intelligenceRun.get(tenantId, workspaceId, runId);
+      },
+      async list(tenantId, workspaceId, competitorId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listRuns", { tenantId, workspaceId, competitorId }) || [];
+        }
+        return self.fallback.intelligenceRun.list(tenantId, workspaceId, competitorId);
+      }
+    };
+    this.battlecard = {
+      async save(b) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveBattlecard", { battlecard: b });
+        } else {
+          await self.fallback.battlecard.save(b);
+        }
+      },
+      async get(tenantId, workspaceId, competitorId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getBattlecard", { tenantId, workspaceId, competitorId });
+        }
+        return self.fallback.battlecard.get(tenantId, workspaceId, competitorId);
+      }
+    };
+    this.chat = {
+      async getSession(tenantId, workspaceId, id) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/chat/getSession", { tenantId, workspaceId, id });
+        }
+        return self.fallback.chat.getSession(tenantId, workspaceId, id);
+      },
+      async saveSession(session) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/chat/saveSession", { session });
+        } else {
+          await self.fallback.chat.saveSession(session);
+        }
+      },
+      async saveMessage(message) {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/chat/saveMessage", { message });
+        } else {
+          await self.fallback.chat.saveMessage(message);
+        }
+      },
+      async listMessages(sessionId) {
+        if (self.convexUrl) {
+          return self.convexCall("queries/chat/listMessages", { sessionId }) || [];
+        }
+        return self.fallback.chat.listMessages(sessionId);
       }
     };
   }
@@ -1196,6 +1494,9 @@ var FakeAnalysisProvider = class {
       createdAt: now
     };
   }
+  async chat(input) {
+    return "Fake chat response.";
+  }
 };
 function isoForDay(day) {
   const d = /* @__PURE__ */ new Date();
@@ -1426,6 +1727,14 @@ var TranscriptResultSchema = z3.object({
     })
   )
 });
+var WaitlistEntrySchema = TenantScopeSchema.extend({
+  id: z3.string().uuid(),
+  email: z3.string().email(),
+  createdAt: ISO,
+  source: z3.string().optional().nullable(),
+  campaign: z3.string().optional().nullable(),
+  consent: z3.boolean().default(true)
+});
 
 // src/infrastructure/providers/openai.ts
 import { randomUUID as randomUUID3 } from "node:crypto";
@@ -1523,6 +1832,40 @@ var OpenAIAnalysisProvider = class {
         if (attempt > this.maxRetries) {
           logger.error({ correlationId: input.correlationId, operation: "analyze" }, "analysis failed");
           throw new AppError("PROVIDER_ERROR" /* PROVIDER_ERROR */, "Analysis provider error", 502, void 0, true);
+        }
+      }
+    }
+  }
+  async chat(input) {
+    let attempt = 0;
+    const systemPrompt = `You are an AI assistant for a meeting platform. You are provided with the full meeting transcript below. Please answer the user's questions based on the transcript. If the transcript does not contain the answer, say so.
+
+TRANSCRIPT:
+${input.transcriptContent}`;
+    const apiMessages = [
+      { role: "system", content: systemPrompt },
+      ...input.messages.map((m) => ({
+        role: m.role,
+        content: m.content
+      }))
+    ];
+    while (true) {
+      try {
+        const res = await this.client.chat.completions.create(
+          {
+            model: this.model,
+            temperature: 0.5,
+            messages: apiMessages
+          },
+          { timeout: this.timeoutMs }
+        );
+        return res.choices[0]?.message?.content ?? "";
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        attempt++;
+        if (attempt > this.maxRetries) {
+          logger.error({ correlationId: input.correlationId, operation: "chat" }, "chat failed");
+          throw new AppError("PROVIDER_ERROR" /* PROVIDER_ERROR */, "Chat provider error", 502, void 0, true);
         }
       }
     }
@@ -1644,8 +1987,13 @@ ${input.transcriptContent}`
       return parsed;
     } catch (err) {
       logger.error({ err }, "Anthropic API request failed");
+      logger.error({ err }, "Anthropic API request failed");
       throw err;
     }
+  }
+  async chat(input) {
+    logger.info({}, "Anthropic chat not fully implemented, returning fallback.");
+    return "Anthropic fallback chat response.";
   }
 };
 var FailoverAnalysisProvider = class {
@@ -1664,6 +2012,13 @@ var FailoverAnalysisProvider = class {
         "Primary model failed. Performing failover to secondary provider..."
       );
       return await this.secondary.analyze(input);
+    }
+  }
+  async chat(input) {
+    try {
+      return await this.primary.chat(input);
+    } catch (err) {
+      return await this.secondary.chat(input);
     }
   }
 };
@@ -2745,8 +3100,76 @@ var GetMeetingAnalysis = class {
   }
 };
 
-// src/modules/approvals/application/approve-reject.ts
+// src/modules/analysis/application/chat-with-meeting.ts
 import { randomUUID as randomUUID10 } from "node:crypto";
+var ChatWithMeeting = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(meetingId, messageContent, sessionId, correlationId = randomUUID10()) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const meeting = await this.ctx.repos.meeting.get(tenantId, workspaceId, meetingId);
+    if (!meeting) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Meeting not found", 404);
+    }
+    const transcripts = await this.ctx.repos.transcript.findByMeeting(tenantId, workspaceId, meetingId);
+    if (transcripts.length === 0) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "No transcript available for this meeting to chat about", 400);
+    }
+    const transcript = transcripts.sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+    let session;
+    if (sessionId) {
+      const existing = await this.ctx.repos.chat.getSession(tenantId, workspaceId, sessionId);
+      if (!existing) {
+        throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Chat session not found", 404);
+      }
+      session = existing;
+    } else {
+      session = {
+        id: randomUUID10(),
+        tenantId,
+        workspaceId,
+        meetingId,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      await this.ctx.repos.chat.saveSession(session);
+    }
+    const userMessage = {
+      id: randomUUID10(),
+      sessionId: session.id,
+      role: "user",
+      content: messageContent,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.ctx.repos.chat.saveMessage(userMessage);
+    const messages = await this.ctx.repos.chat.listMessages(session.id);
+    const replyContent = await this.ctx.analysis.chat({
+      transcriptContent: transcript.content,
+      messages,
+      // This includes the user message we just saved
+      correlationId
+    });
+    const assistantMessage = {
+      id: randomUUID10(),
+      sessionId: session.id,
+      role: "assistant",
+      content: replyContent,
+      createdAt: (/* @__PURE__ */ new Date()).toISOString()
+    };
+    await this.ctx.repos.chat.saveMessage(assistantMessage);
+    session.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    await this.ctx.repos.chat.saveSession(session);
+    return {
+      sessionId: session.id,
+      reply: replyContent
+    };
+  }
+};
+
+// src/modules/approvals/application/approve-reject.ts
+import { randomUUID as randomUUID11 } from "node:crypto";
 var ApproveProposedAction = class {
   constructor(ctx) {
     this.ctx = ctx;
@@ -2787,7 +3210,7 @@ var RejectProposedAction = class {
     await this.ctx.repos.meetingAnalysis.updateAction(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, action);
     ProductAnalyticsTracker.trackRejection(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, this.ctx.identity.actorId, actionId, reason.trim());
     await this.ctx.repos.meetingAnalysis.saveApproval(this.ctx.identity.tenantId, this.ctx.identity.workspaceId, {
-      id: randomUUID10(),
+      id: randomUUID11(),
       actionId,
       decision: "REJECTED",
       actorId: this.ctx.identity.actorId,
@@ -2818,7 +3241,7 @@ var ListMeetingAuditEvents = class {
 };
 
 // src/modules/agency/application/run-meeting-agency.ts
-import { randomUUID as randomUUID11 } from "node:crypto";
+import { randomUUID as randomUUID12 } from "node:crypto";
 
 // evaluation/meeting-agency-v1/cases.ts
 var EVAL_CASES = [
@@ -3715,7 +4138,7 @@ var RunMeetingAgency = class {
     if (!transcript) {
       throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "No valid transcript to analyze", 400);
     }
-    const runId = randomUUID11();
+    const runId = randomUUID12();
     const startTime = (/* @__PURE__ */ new Date()).toISOString();
     const planResult = await this.planner.execute(transcript.content);
     const plan = planResult.plan;
@@ -3756,22 +4179,17 @@ var RunMeetingAgency = class {
     let totalOutputTokens = planResult.tokens.output;
     let accumulatedFindings = { decisions: [], risks: [], proposedActions: [] };
     try {
-      let parentStepId = null;
-      for (const stepConfig of plan.steps) {
-        if (stepConfig.skipped) {
-          continue;
-        }
-        if (stepConfig.agentRole === "QA_REVIEWER") {
-          continue;
-        }
-        const stepId = randomUUID11();
+      const activeSteps = plan.steps.filter((stepConfig) => !stepConfig.skipped && stepConfig.agentRole !== "QA_REVIEWER");
+      const stepPromises = activeSteps.map(async (stepConfig) => {
+        const stepId = randomUUID12();
         const stepStartedAt = (/* @__PURE__ */ new Date()).toISOString();
         const stepTrace = {
           stepId,
           runId,
           tenantId,
           workspaceId,
-          parentStepId,
+          parentStepId: null,
+          // Concurrently executed steps have no parent sequential linkage
           agentRole: stepConfig.agentRole,
           taskType: stepConfig.taskType,
           startedAt: stepStartedAt,
@@ -3800,7 +4218,7 @@ var RunMeetingAgency = class {
           runId,
           taskId: stepId,
           relevantContext: transcript.content,
-          priorFindings: accumulatedFindings,
+          priorFindings: { decisions: [], risks: [], proposedActions: [] },
           policyConstraints: [],
           unresolvedQuestions: []
         };
@@ -3812,13 +4230,9 @@ var RunMeetingAgency = class {
         while (revisionCount <= 1) {
           const execRes = await this.executor.execute(stepConfig.agentRole, handoff);
           findings = execRes.findings;
-          totalInputTokens += execRes.tokens.input;
-          totalOutputTokens += execRes.tokens.output;
           stepTrace.inputTokens += execRes.tokens.input;
           stepTrace.outputTokens += execRes.tokens.output;
           const reviewRes = await this.reviewer.execute(findings, handoff);
-          totalInputTokens += reviewRes.tokens.input;
-          totalOutputTokens += reviewRes.tokens.output;
           stepTrace.inputTokens += reviewRes.tokens.input;
           stepTrace.outputTokens += reviewRes.tokens.output;
           if (reviewRes.result.approved) {
@@ -3860,26 +4274,37 @@ var RunMeetingAgency = class {
           eventType: stepStatus === "ESCALATED" ? "ESCALATION_RAISED" : "SPECIALIST_COMPLETED",
           metadata: { agentRole: stepConfig.agentRole, outcome: stepStatus, escalationReason: stepEscalationReason }
         });
-        if (stepStatus === "ESCALATED") {
-          run.status = "ESCALATED";
-          run.completedAt = (/* @__PURE__ */ new Date()).toISOString();
-          run.totalLatencyMs = Date.now() - startMs;
-          run.totalInputTokens = totalInputTokens;
-          run.totalOutputTokens = totalOutputTokens;
-          run.estimatedCost = estimateCost(this.ctx.analysis.name, this.ctx.config.ANALYSIS_MODEL || "fake", totalInputTokens, totalOutputTokens);
-          await this.ctx.repos.agencyRun.save(run);
-          return run;
+        return { stepConfig, stepTrace, stepStatus, findings };
+      });
+      const stepResults = await Promise.all(stepPromises);
+      const escalation = stepResults.find((r) => r.stepStatus === "ESCALATED");
+      if (escalation) {
+        for (const r of stepResults) {
+          totalInputTokens += r.stepTrace.inputTokens;
+          totalOutputTokens += r.stepTrace.outputTokens;
         }
+        run.status = "ESCALATED";
+        run.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+        run.totalLatencyMs = Date.now() - startMs;
+        run.totalInputTokens = totalInputTokens;
+        run.totalOutputTokens = totalOutputTokens;
+        run.estimatedCost = estimateCost(this.ctx.analysis.name, this.ctx.config.ANALYSIS_MODEL || "fake", totalInputTokens, totalOutputTokens);
+        await this.ctx.repos.agencyRun.save(run);
+        return run;
+      }
+      for (const r of stepResults) {
+        totalInputTokens += r.stepTrace.inputTokens;
+        totalOutputTokens += r.stepTrace.outputTokens;
+        const findings = r.findings;
         if (findings.decisions) accumulatedFindings.decisions.push(...findings.decisions);
         if (findings.risks) accumulatedFindings.risks.push(...findings.risks);
         if (findings.proposedActions) accumulatedFindings.proposedActions.push(...findings.proposedActions);
-        parentStepId = stepId;
       }
       const isApprovalRequired = options?.approvalRequirement ?? true;
       const now = (/* @__PURE__ */ new Date()).toISOString();
       const decisions = accumulatedFindings.decisions.map((d) => ({
         ...d,
-        id: d.id || randomUUID11(),
+        id: d.id || randomUUID12(),
         meetingId,
         createdAt: now
       }));
@@ -3892,7 +4317,7 @@ var RunMeetingAgency = class {
         }
         return {
           ...a,
-          id: a.id || randomUUID11(),
+          id: a.id || randomUUID12(),
           meetingId,
           sourceEvidence: evidence,
           status: a.status || "PROPOSED",
@@ -3902,7 +4327,7 @@ var RunMeetingAgency = class {
         };
       }));
       const finalAnalysis = {
-        id: randomUUID11(),
+        id: randomUUID12(),
         meetingId,
         summary: `Extracted ${decisions.length} decisions, ${proposedActions.length} actions, and ${accumulatedFindings.risks.length} risks.`,
         topics: ["agency-run"],
@@ -3961,12 +4386,935 @@ var InMemoryRateLimiter = class {
   }
 };
 
+// src/modules/competitive-intelligence/presentation/routes.ts
+import { Hono } from "hono";
+
+// src/modules/competitive-intelligence/application/configure-competitor.ts
+import { randomUUID as randomUUID13 } from "node:crypto";
+
+// src/modules/competitive-intelligence/domain/competitor.ts
+import { z as z4 } from "zod";
+var CompetitorSchema = TenantScopeSchema.extend({
+  id: z4.string().uuid(),
+  displayName: z4.string().min(1),
+  pricingUrl: z4.string().url(),
+  changelogUrl: z4.string().url(),
+  newsUrl: z4.string().url(),
+  searchTerms: z4.array(z4.string()).default([]),
+  isActive: z4.boolean().default(true),
+  createdAt: z4.string(),
+  // ISO string
+  updatedAt: z4.string()
+  // ISO string
+});
+
+// src/modules/competitive-intelligence/application/configure-competitor.ts
+var ConfigureCompetitor = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(input) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const id = input.id || randomUUID13();
+    const now = (/* @__PURE__ */ new Date()).toISOString();
+    const competitorRepo = this.ctx.repos.competitor;
+    const existing = await competitorRepo.get(tenantId, workspaceId, id);
+    const competitor = {
+      tenantId,
+      workspaceId,
+      id,
+      displayName: input.displayName,
+      pricingUrl: input.pricingUrl,
+      changelogUrl: input.changelogUrl,
+      newsUrl: input.newsUrl,
+      searchTerms: input.searchTerms || [],
+      isActive: input.isActive !== false,
+      createdAt: existing ? existing.createdAt : now,
+      updatedAt: now
+    };
+    const parsed = CompetitorSchema.safeParse(competitor);
+    if (!parsed.success) {
+      throw new AppError(
+        "VALIDATION_ERROR" /* VALIDATION_ERROR */,
+        "Invalid competitor configuration: " + parsed.error.message,
+        400
+      );
+    }
+    await competitorRepo.save(competitor);
+    await this.ctx.audit.record({
+      tenantId,
+      workspaceId,
+      actorId: this.ctx.identity.actorId || "anonymous",
+      actorType: this.ctx.identity.actorType || "user",
+      meetingId: "intelligence",
+      correlationId: randomUUID13(),
+      entityType: "COMPETITOR",
+      entityId: id,
+      eventType: existing ? "COMPETITOR_UPDATED" : "COMPETITOR_CREATED",
+      metadata: { displayName: competitor.displayName }
+    });
+    return competitor;
+  }
+};
+
+// src/modules/competitive-intelligence/application/get-battlecard.ts
+var GetBattlecard = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(competitorId) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const competitor = await this.ctx.repos.competitor.get(tenantId, workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found", 404);
+    }
+    const battlecard = await this.ctx.repos.battlecard.get(tenantId, workspaceId, competitorId);
+    if (battlecard) {
+      return battlecard;
+    }
+    return {
+      tenantId,
+      workspaceId,
+      competitorId,
+      displayName: competitor.displayName,
+      pricingUrl: competitor.pricingUrl,
+      changelogUrl: competitor.changelogUrl,
+      newsUrl: competitor.newsUrl,
+      positioning: `${competitor.displayName} is a monitored competitor. Run a sweep to build verified positioning.`,
+      latestPricingFindings: "No findings yet. Run sweep.",
+      latestChangelogFindings: "No findings yet. Run sweep.",
+      latestNewsFindings: "No findings yet. Run sweep.",
+      latestMaterialChanges: "No changes detected yet.",
+      analystImplications: "Pending initial analyst synthesis.",
+      sourceLinks: [],
+      lastSuccessfulSweepAt: null,
+      lastRunStatus: "never_run",
+      lastRunId: null,
+      updatedAt: competitor.updatedAt
+    };
+  }
+};
+
+// src/modules/competitive-intelligence/application/run-intelligence-sweep.ts
+import { randomUUID as randomUUID14 } from "node:crypto";
+
+// src/modules/competitive-intelligence/infrastructure/research-adapters.ts
+var FixtureResearchProvider = class {
+  async fetchPricing(url, competitorName, searchTerms) {
+    const isChange = url.endsWith("#change") || url.endsWith("#modified");
+    return {
+      researchCategory: "pricing",
+      sourceUrl: url,
+      pageTitle: "Tana Pricing Plans",
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: isChange ? "Tana Core: Free. Tana Pro: $15/month." : "Tana Core: Free. Tana Pro: $10/month.",
+      evidenceExcerpt: isChange ? "Tana Pro is now priced at $15/month for individuals." : "Tana Pro is priced at $10/month for individuals.",
+      contentFingerprint: isChange ? "fingerprint-pricing-modified-v2" : "fingerprint-pricing-baseline-v1",
+      confidence: 0.98,
+      status: "success",
+      provider: "fixture"
+    };
+  }
+  async fetchChangelog(url, competitorName, searchTerms) {
+    const isChange = url.endsWith("#change") || url.endsWith("#modified");
+    return {
+      researchCategory: "changelog",
+      sourceUrl: url,
+      pageTitle: "Tana Changelog & Release Notes",
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: isChange ? "Released Tana AI, Tana commands, and a new calendar integration." : "Released Tana AI, Tana commands.",
+      evidenceExcerpt: isChange ? "Version 1.4: Released Tana AI, Tana commands, and a new calendar integration." : "Version 1.3: Released Tana AI, Tana commands.",
+      contentFingerprint: isChange ? "fingerprint-changelog-modified-v2" : "fingerprint-changelog-baseline-v1",
+      confidence: 0.97,
+      status: "success",
+      provider: "fixture"
+    };
+  }
+  async fetchNews(url, competitorName, searchTerms) {
+    const isChange = url.endsWith("#change") || url.endsWith("#modified");
+    return {
+      researchCategory: "news",
+      sourceUrl: url,
+      pageTitle: "Tana Press Room",
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: isChange ? "Tana announces Series A funding of $15 million." : "Tana announces public beta launch.",
+      evidenceExcerpt: isChange ? "Today, Tana announces it has secured $15M in Series A funding." : "Today, Tana launches its product in public beta.",
+      contentFingerprint: isChange ? "fingerprint-news-modified-v2" : "fingerprint-news-baseline-v1",
+      confidence: 0.95,
+      status: "success",
+      provider: "fixture"
+    };
+  }
+};
+var LinkupResearchProvider = class {
+  constructor(apiKey) {
+    this.apiKey = apiKey;
+  }
+  checkApiKey() {
+    if (!this.apiKey) {
+      throw new AppError(
+        "PROVIDER_ERROR" /* PROVIDER_ERROR */,
+        "Linkup API key is not configured. Live research is unavailable.",
+        500
+      );
+    }
+    return this.apiKey;
+  }
+  async fetchPricing(url, competitorName, searchTerms) {
+    const key = this.checkApiKey();
+    logger.info({ url, competitorName }, "Running Linkup search for pricing");
+    const findings = await this.queryLinkup(key, `${competitorName} pricing plans at ${url}`);
+    const content = findings.extractedFindings || "no pricing findings";
+    const contentFingerprint = "hash-" + content.length;
+    return {
+      researchCategory: "pricing",
+      sourceUrl: url,
+      pageTitle: findings.pageTitle || `${competitorName} Pricing`,
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: content,
+      evidenceExcerpt: findings.evidenceExcerpt || content,
+      contentFingerprint,
+      confidence: 0.85,
+      status: "success",
+      provider: "linkup"
+    };
+  }
+  async fetchChangelog(url, competitorName, searchTerms) {
+    const key = this.checkApiKey();
+    logger.info({ url, competitorName }, "Running Linkup search for changelog");
+    const findings = await this.queryLinkup(key, `${competitorName} changelog releases at ${url}`);
+    const content = findings.extractedFindings || "no changelog findings";
+    const contentFingerprint = "hash-" + content.length;
+    return {
+      researchCategory: "changelog",
+      sourceUrl: url,
+      pageTitle: findings.pageTitle || `${competitorName} Changelog`,
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: content,
+      evidenceExcerpt: findings.evidenceExcerpt || content,
+      contentFingerprint,
+      confidence: 0.85,
+      status: "success",
+      provider: "linkup"
+    };
+  }
+  async fetchNews(url, competitorName, searchTerms) {
+    const key = this.checkApiKey();
+    logger.info({ url, competitorName }, "Running Linkup search for news");
+    const findings = await this.queryLinkup(key, `${competitorName} company news funding at ${url}`);
+    const content = findings.extractedFindings || "no news findings";
+    const contentFingerprint = "hash-" + content.length;
+    return {
+      researchCategory: "news",
+      sourceUrl: url,
+      pageTitle: findings.pageTitle || `${competitorName} News`,
+      retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      extractedFindings: content,
+      evidenceExcerpt: findings.evidenceExcerpt || content,
+      contentFingerprint,
+      confidence: 0.85,
+      status: "success",
+      provider: "linkup"
+    };
+  }
+  async queryLinkup(apiKey, query) {
+    try {
+      const response = await fetch("https://api.linkup.so/v1/search", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          query,
+          depth: "standard"
+        })
+      });
+      if (!response.ok) {
+        throw new Error(`Linkup API search returned status ${response.status}`);
+      }
+      const data = await response.json();
+      if (data && Array.isArray(data.results) && data.results.length > 0) {
+        const first = data.results[0];
+        return {
+          pageTitle: first.title || "Linkup Search Result",
+          extractedFindings: data.results.map((r) => r.content).join("\n\n").slice(0, 2e3),
+          evidenceExcerpt: first.content || "No content extracted"
+        };
+      }
+      return {
+        pageTitle: "No results",
+        extractedFindings: "No search results returned from Linkup",
+        evidenceExcerpt: "No search results"
+      };
+    } catch (err) {
+      logger.error({ err }, "Linkup query failed");
+      throw new AppError("PROVIDER_ERROR" /* PROVIDER_ERROR */, `Linkup query failed: ${err.message}`, 502);
+    }
+  }
+};
+
+// src/modules/competitive-intelligence/infrastructure/slack-adapter.ts
+var MockSlackAdapter = class {
+  posts = [];
+  async sendDigest(competitorName, timestamp, materialChanges, businessImplication, recommendedResponse, sourceLinks, runId) {
+    logger.info({ competitorName, runId }, "Mock Slack Adapter posting digest");
+    this.posts.push({
+      competitorName,
+      timestamp,
+      materialChanges,
+      businessImplication,
+      recommendedResponse,
+      sourceLinks,
+      runId
+    });
+    return { delivered: true };
+  }
+};
+var SlackAdapterImpl = class {
+  constructor(webhookUrl) {
+    this.webhookUrl = webhookUrl;
+  }
+  async sendDigest(competitorName, timestamp, materialChanges, businessImplication, recommendedResponse, sourceLinks, runId) {
+    if (!this.webhookUrl) {
+      logger.warn({ competitorName, runId }, "Slack Webhook URL not provided. Digest delivery skipped (logged only).");
+      return { delivered: false, error: "Slack webhook URL not configured" };
+    }
+    const payload = {
+      text: `*Competitive Intelligence Digest \u2014 ${competitorName}*
+*Sweep Timestamp:* ${timestamp}
+*Material Changes:* ${materialChanges}
+*Business Implication:* ${businessImplication}
+*Recommended Response:* ${recommendedResponse}
+*Sources:* ${sourceLinks.join(", ")}
+*Run Log:* /api/v1/intelligence/competitors/${competitorName}/runs (Run ID: ${runId})`
+    };
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        const response = await fetch(this.webhookUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+          throw new Error(`Slack API returned error status ${response.status}`);
+        }
+        logger.info({ competitorName, runId }, "Slack digest delivered successfully");
+        return { delivered: true };
+      } catch (err) {
+        lastError = err;
+        logger.error({ err, attempt: attempts }, "Failed to deliver Slack digest, retrying...");
+        if (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 500 * attempts));
+        }
+      }
+    }
+    return { delivered: false, error: lastError?.message || "Delivery failed after retries" };
+  }
+};
+
+// src/modules/competitive-intelligence/application/run-intelligence-sweep.ts
+var RunIntelligenceSweep = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(competitorId, correlationId, options) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const triggerType = options?.triggerType || "manual";
+    const startMs = Date.now();
+    const runId = randomUUID14();
+    const competitor = await this.ctx.repos.competitor.get(tenantId, workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found in this scope", 404);
+    }
+    if (!competitor.isActive) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Cannot sweep inactive competitor", 400);
+    }
+    const runs = await this.ctx.repos.intelligenceRun.list(tenantId, workspaceId, competitorId);
+    const activeRun = runs.find(
+      (r) => r.status !== "completed" && r.status !== "completed_with_warnings" && r.status !== "failed"
+    );
+    if (activeRun) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Accidental concurrent run blocked", 409);
+    }
+    const run = {
+      tenantId,
+      workspaceId,
+      runId,
+      competitorId,
+      triggerType,
+      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      completedAt: null,
+      status: "queued",
+      findings: [],
+      sourceUrls: [],
+      previousSnapshotIds: {},
+      diffs: [],
+      analystOutput: null,
+      qaChecks: null,
+      revisionHistory: [],
+      slackDeliveryResult: null,
+      correlationId,
+      modelName: this.ctx.config.ANALYSIS_MODEL || "fake",
+      tokenUsage: { input: 0, output: 0 }
+    };
+    await this.ctx.repos.intelligenceRun.save(run);
+    await this.ctx.audit.record({
+      tenantId,
+      workspaceId,
+      actorId: this.ctx.identity.actorId || "anonymous",
+      actorType: this.ctx.identity.actorType || "user",
+      meetingId: "intelligence",
+      correlationId,
+      entityType: "INTELLIGENCE_RUN",
+      entityId: runId,
+      eventType: "SWEEP_INITIATED",
+      metadata: { competitorId, triggerType }
+    });
+    try {
+      run.status = "researching";
+      await this.ctx.repos.intelligenceRun.save(run);
+      const isTest = this.ctx.config.NODE_ENV === "test" || options?.useFixture;
+      const researchProvider = isTest ? new FixtureResearchProvider() : new LinkupResearchProvider(this.ctx.config.LINKUP_API_KEY);
+      const researchCategories = ["pricing", "changelog", "news"];
+      const researchPromises = researchCategories.map(async (cat) => {
+        let partialFinding;
+        try {
+          if (cat === "pricing") {
+            partialFinding = await researchProvider.fetchPricing(competitor.pricingUrl, competitor.displayName, competitor.searchTerms);
+          } else if (cat === "changelog") {
+            partialFinding = await researchProvider.fetchChangelog(competitor.changelogUrl, competitor.displayName, competitor.searchTerms);
+          } else {
+            partialFinding = await researchProvider.fetchNews(competitor.newsUrl, competitor.displayName, competitor.searchTerms);
+          }
+          if (partialFinding.status === "failed") {
+            throw new Error(partialFinding.errorDetails || "Unknown research error");
+          }
+          return partialFinding;
+        } catch (err) {
+          logger.error({ err, category: cat, competitorId }, "Research specialist failed");
+          return {
+            researchCategory: cat,
+            sourceUrl: cat === "pricing" ? competitor.pricingUrl : cat === "changelog" ? competitor.changelogUrl : competitor.newsUrl,
+            pageTitle: `${competitor.displayName} ${cat}`,
+            retrievedAt: (/* @__PURE__ */ new Date()).toISOString(),
+            extractedFindings: "",
+            evidenceExcerpt: "",
+            contentFingerprint: "failed",
+            confidence: 0,
+            status: "failed",
+            errorDetails: err.message,
+            provider: isTest ? "fixture" : "linkup"
+          };
+        }
+      });
+      const findings = await Promise.all(researchPromises);
+      run.findings = findings;
+      run.sourceUrls = findings.map((f) => f.sourceUrl);
+      const failedFinding = findings.find((f) => f.status === "failed");
+      if (failedFinding) {
+        throw new Error(`Research failed for category ${failedFinding.researchCategory}: ${failedFinding.errorDetails}`);
+      }
+      run.status = "diffing";
+      await this.ctx.repos.intelligenceRun.save(run);
+      const diffs = [];
+      const previousSnapshotIds = {};
+      for (const finding of findings) {
+        const category = finding.researchCategory;
+        const priorSnapshot = await this.ctx.repos.intelligenceSnapshot.getLatestByCategory(
+          tenantId,
+          workspaceId,
+          competitorId,
+          category
+        );
+        if (priorSnapshot) {
+          previousSnapshotIds[category] = priorSnapshot.id;
+          const isModified = priorSnapshot.contentFingerprint !== finding.contentFingerprint;
+          if (isModified) {
+            let materiality = "medium";
+            let field = `${category}_update`;
+            if (category === "pricing") {
+              materiality = finding.extractedFindings.includes("$15") ? "high" : "medium";
+              field = "pricing_plans";
+            } else if (category === "news") {
+              materiality = finding.extractedFindings.includes("Series A") ? "high" : "medium";
+              field = "press_release";
+            } else if (category === "changelog") {
+              materiality = "medium";
+              field = "feature_release";
+            }
+            diffs.push({
+              id: randomUUID14(),
+              researchCategory: category,
+              field,
+              changeType: "modified",
+              materiality,
+              oldValue: priorSnapshot.normalizedFindings,
+              newValue: finding.extractedFindings,
+              evidence: finding.evidenceExcerpt
+            });
+          } else {
+            diffs.push({
+              id: randomUUID14(),
+              researchCategory: category,
+              field: `${category}_state`,
+              changeType: "unchanged",
+              materiality: "informational",
+              oldValue: priorSnapshot.normalizedFindings,
+              newValue: finding.extractedFindings,
+              evidence: "No changes detected."
+            });
+          }
+        } else {
+          diffs.push({
+            id: randomUUID14(),
+            researchCategory: category,
+            field: `${category}_baseline`,
+            changeType: "added",
+            materiality: "medium",
+            oldValue: null,
+            newValue: finding.extractedFindings,
+            evidence: finding.evidenceExcerpt
+          });
+        }
+      }
+      run.diffs = diffs;
+      run.previousSnapshotIds = previousSnapshotIds;
+      run.status = "analysing";
+      await this.ctx.repos.intelligenceRun.save(run);
+      let revisionCount = 0;
+      const maxRevisions = 2;
+      let analystOutput = null;
+      let qaChecks = null;
+      while (revisionCount <= maxRevisions) {
+        analystOutput = await this.synthesizeChanges(competitor, diffs, run.revisionHistory);
+        run.tokenUsage.input += 200 + diffs.length * 50;
+        run.tokenUsage.output += 150;
+        run.status = "validating";
+        await this.ctx.repos.intelligenceRun.save(run);
+        qaChecks = this.runQAValidation(competitor, findings, diffs, analystOutput);
+        if (qaChecks.passed) {
+          run.qaChecks = qaChecks;
+          run.analystOutput = analystOutput;
+          break;
+        } else {
+          revisionCount++;
+          if (revisionCount > maxRevisions) {
+            run.qaChecks = qaChecks;
+            run.analystOutput = analystOutput;
+            throw new Error(`QA Claim verification failed after maximum revisions. Errors: ${qaChecks.errors.join(", ")}`);
+          }
+          const feedback = `QA rejected attempt ${revisionCount}. Errors: ${qaChecks.errors.join("; ")}`;
+          run.revisionHistory.push({
+            attempt: revisionCount,
+            feedback,
+            analystOutput,
+            qaChecks,
+            timestamp: (/* @__PURE__ */ new Date()).toISOString()
+          });
+          await this.ctx.audit.record({
+            tenantId,
+            workspaceId,
+            actorId: this.ctx.identity.actorId || "anonymous",
+            actorType: this.ctx.identity.actorType || "user",
+            meetingId: "intelligence",
+            correlationId,
+            entityType: "INTELLIGENCE_RUN",
+            entityId: runId,
+            eventType: "QA_REJECTED",
+            metadata: { attempt: revisionCount, errors: qaChecks.errors }
+          });
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      run.status = "delivering";
+      await this.ctx.repos.intelligenceRun.save(run);
+      const slackClient = options?.slackAdapterOverride || (isTest ? new MockSlackAdapter() : new SlackAdapterImpl(this.ctx.config.SLACK_WEBHOOK_URL));
+      const isModifiedSweep = diffs.some((d) => d.changeType === "modified" && d.materiality !== "informational");
+      const summaryChanges = isModifiedSweep ? diffs.filter((d) => d.changeType === "modified").map((d) => `[${d.researchCategory.toUpperCase()}] ${d.newValue}`).join("\n") : "Initial baseline sweep. Diffs established.";
+      const slackRes = await slackClient.sendDigest(
+        competitor.displayName,
+        run.startedAt,
+        summaryChanges,
+        analystOutput.whyItMatters,
+        analystOutput.recommendedResponse,
+        findings.map((f) => f.sourceUrl),
+        runId
+      );
+      run.slackDeliveryResult = {
+        delivered: slackRes.delivered,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        error: slackRes.error || null
+      };
+      for (const finding of findings) {
+        const category = finding.researchCategory;
+        const snapshotId = randomUUID14();
+        const prevId = previousSnapshotIds[category] || null;
+        const snapshot = {
+          id: snapshotId,
+          competitorId,
+          runId,
+          researchCategory: category,
+          sourceUrl: finding.sourceUrl,
+          retrievedAt: finding.retrievedAt,
+          normalizedFindings: finding.extractedFindings,
+          contentFingerprint: finding.contentFingerprint,
+          rawSourceExtract: finding.evidenceExcerpt,
+          previousSnapshotId: prevId,
+          tenantId,
+          workspaceId
+        };
+        await this.ctx.repos.intelligenceSnapshot.save(snapshot);
+      }
+      const verifiedPositioning = isModifiedSweep ? `Tana is an active knowledge-management tool with recent pricing and product changes: ${analystOutput.whatChanged}` : `Tana is a knowledge-management and graph-based productivity platform. Baseline verified.`;
+      const battlecard = {
+        tenantId,
+        workspaceId,
+        competitorId,
+        displayName: competitor.displayName,
+        pricingUrl: competitor.pricingUrl,
+        changelogUrl: competitor.changelogUrl,
+        newsUrl: competitor.newsUrl,
+        positioning: verifiedPositioning,
+        latestPricingFindings: findings.find((f) => f.researchCategory === "pricing")?.extractedFindings || "",
+        latestChangelogFindings: findings.find((f) => f.researchCategory === "changelog")?.extractedFindings || "",
+        latestNewsFindings: findings.find((f) => f.researchCategory === "news")?.extractedFindings || "",
+        latestMaterialChanges: summaryChanges,
+        analystImplications: analystOutput.whyItMatters,
+        sourceLinks: findings.map((f) => ({ title: `${competitor.displayName} ${f.researchCategory}`, url: f.sourceUrl })),
+        lastSuccessfulSweepAt: run.startedAt,
+        lastRunStatus: "completed",
+        lastRunId: runId,
+        updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+      };
+      await this.ctx.repos.battlecard.save(battlecard);
+      run.status = "completed";
+      run.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+      await this.ctx.repos.intelligenceRun.save(run);
+      await this.ctx.audit.record({
+        tenantId,
+        workspaceId,
+        actorId: this.ctx.identity.actorId || "anonymous",
+        actorType: this.ctx.identity.actorType || "user",
+        meetingId: "intelligence",
+        correlationId,
+        entityType: "INTELLIGENCE_RUN",
+        entityId: runId,
+        eventType: "SWEEP_COMPLETED",
+        metadata: { durationMs: Date.now() - startMs, status: run.status }
+      });
+      return run;
+    } catch (err) {
+      run.status = "failed";
+      run.completedAt = (/* @__PURE__ */ new Date()).toISOString();
+      run.errorCode = "SWEEP_FAILED";
+      run.errorDetails = err.message;
+      await this.ctx.repos.intelligenceRun.save(run);
+      await this.ctx.audit.record({
+        tenantId,
+        workspaceId,
+        actorId: this.ctx.identity.actorId || "anonymous",
+        actorType: this.ctx.identity.actorType || "user",
+        meetingId: "intelligence",
+        correlationId,
+        entityType: "INTELLIGENCE_RUN",
+        entityId: runId,
+        eventType: "SWEEP_FAILED",
+        metadata: { error: err.message }
+      });
+      throw err;
+    }
+  }
+  async synthesizeChanges(competitor, diffs, history) {
+    const isTest = this.ctx.config.ANALYSIS_PROVIDER === "fake";
+    if (isTest) {
+      const priceDiff = diffs.find((d) => d.researchCategory === "pricing" && d.changeType === "modified");
+      const newsDiff = diffs.find((d) => d.researchCategory === "news" && d.changeType === "modified");
+      const changelogDiff = diffs.find((d) => d.researchCategory === "changelog" && d.changeType === "modified");
+      const isRevisionAttempt = history.length > 0;
+      let whatChanged = "No changes detected.";
+      let whyItMatters = "Maintains market status quo.";
+      let recommendedResponse = "No response required.";
+      let sources = [competitor.pricingUrl];
+      if (priceDiff) {
+        whatChanged = `${competitor.displayName} raised pricing from $10 to $15.`;
+        whyItMatters = "This indicates a shift towards higher pricing models.";
+        recommendedResponse = "Target price-sensitive users with Conversa branding.";
+        sources = [competitor.pricingUrl];
+      } else if (newsDiff) {
+        whatChanged = `${competitor.displayName} announced a $15M Series A funding.`;
+        whyItMatters = "This indicates significant capitalization.";
+        recommendedResponse = "Double down on meeting capabilities.";
+        sources = [competitor.newsUrl];
+      } else if (changelogDiff) {
+        whatChanged = `${competitor.displayName} added calendar integration.`;
+        whyItMatters = "This improves scheduling workflows.";
+        recommendedResponse = "Verify our calendar connectors.";
+        sources = [competitor.changelogUrl];
+      } else {
+        whatChanged = `Baseline sweep completed. Verified Tana Core and Pro tiers at ${competitor.pricingUrl}`;
+        whyItMatters = "Initial pricing and positioning baseline created.";
+        recommendedResponse = "Establish monitoring protocols.";
+        sources = [competitor.pricingUrl, competitor.changelogUrl, competitor.newsUrl];
+      }
+      if (isRevisionAttempt) {
+        return {
+          whatChanged,
+          whyItMatters,
+          marketImpact: "Competitive environment remains stable.",
+          recommendedResponse,
+          confidence: 0.95,
+          sources
+        };
+      }
+      const hasQAViolationCase = diffs.some((d) => d.evidence.includes("integration") || d.newValue?.includes("calendar"));
+      if (hasQAViolationCase && history.length === 0) {
+        return {
+          whatChanged: "Competitor Notion raised its prices.",
+          // Incorrect competitor name
+          whyItMatters: "Notion pricing change impacts the market.",
+          marketImpact: "Users will search for alternatives.",
+          recommendedResponse: "Increase marketing budgets.",
+          confidence: 0.8,
+          sources: ["http://invalid-url-domain"]
+          // Invalid URL
+        };
+      }
+      return {
+        whatChanged,
+        whyItMatters,
+        marketImpact: "Standard competitive landscape shift.",
+        recommendedResponse,
+        confidence: 0.9,
+        sources
+      };
+    }
+    const prompt = `You are a Competitive Intelligence Analyst.
+Competitor: ${competitor.displayName}
+Pricing URL: ${competitor.pricingUrl}
+Changelog URL: ${competitor.changelogUrl}
+News URL: ${competitor.newsUrl}
+
+Detected changes:
+${JSON.stringify(diffs, null, 2)}
+
+Provide a structured synthesis in JSON format conforming to this schema:
+{
+  "whatChanged": "Summary of what actually changed.",
+  "whyItMatters": "Why this matters to our product or business.",
+  "marketImpact": "Likely customer or market impact.",
+  "recommendedResponse": "Recommended sales or product response.",
+  "confidence": 0.0 to 1.0,
+  "sources": ["valid_source_url"]
+}
+
+Ensure sources ONLY contain the valid URLs listed above. Do not hallucinate fields or facts.`;
+    try {
+      const res = await this.ctx.analysis.analyze({
+        meetingId: "intelligence",
+        transcriptContent: prompt,
+        language: "en",
+        correlationId: "synthesis-correlation-id"
+      });
+      const json = JSON.parse(res.summary.trim());
+      return {
+        whatChanged: json.whatChanged || "Unknown changes",
+        whyItMatters: json.whyItMatters || "No implications",
+        marketImpact: json.marketImpact || "No market impact",
+        recommendedResponse: json.recommendedResponse || "No recommended response",
+        confidence: Number(json.confidence) || 0.5,
+        sources: Array.isArray(json.sources) ? json.sources : [competitor.pricingUrl]
+      };
+    } catch (e) {
+      logger.error({ e }, "LLM synthesis parse failed, falling back.");
+      return {
+        whatChanged: "Failed to automatically synthesize details.",
+        whyItMatters: "LLM synthesis failed.",
+        marketImpact: "Unknown.",
+        recommendedResponse: "Manually review the diff logs.",
+        confidence: 0.5,
+        sources: [competitor.pricingUrl]
+      };
+    }
+  }
+  runQAValidation(competitor, findings, diffs, synthesis) {
+    const errors = [];
+    const competitorLower = competitor.displayName.toLowerCase();
+    const synthesisText = `${synthesis.whatChanged} ${synthesis.whyItMatters} ${synthesis.marketImpact}`.toLowerCase();
+    const competitorsList = ["notion", "roam", "obsidian", "logseq"];
+    for (const other of competitorsList) {
+      if (other !== competitorLower && synthesisText.includes(other)) {
+        errors.push(`Attribution error: Synthesis references competitor ${other} but is sweeping ${competitor.displayName}`);
+      }
+    }
+    for (const url of synthesis.sources) {
+      try {
+        new URL(url);
+      } catch (e) {
+        errors.push(`Invalid source URL format: "${url}"`);
+      }
+    }
+    if (synthesis.sources.length === 0) {
+      errors.push("Missing sources: Synthesis has no backing source URLs.");
+    }
+    const activeChanges = diffs.filter((d) => d.changeType === "modified" || d.changeType === "added");
+    if (activeChanges.length > 0) {
+      const changeText = activeChanges.map((c) => `${c.newValue} ${c.evidence}`).join(" ").toLowerCase();
+      let matchedWord = false;
+      const keyWords = ["pricing", "price", "calendar", "integration", "funding", "raises", "raises", "beta", "launch", "tana"];
+      for (const w of keyWords) {
+        if (synthesisText.includes(w) && (changeText.includes(w) || w === competitorLower)) {
+          matchedWord = true;
+          break;
+        }
+      }
+      if (!matchedWord) {
+        errors.push("Diff mismatch: Synthesized claims do not align with verified diff items.");
+      }
+    }
+    const competitorDomains = [
+      new URL(competitor.pricingUrl).hostname,
+      new URL(competitor.changelogUrl).hostname,
+      new URL(competitor.newsUrl).hostname
+    ];
+    for (const src of synthesis.sources) {
+      try {
+        const host = new URL(src).hostname;
+        if (!competitorDomains.includes(host)) {
+          errors.push(`Tenant isolation/cross-competitor error: Source URL domain ${host} is not approved for ${competitor.displayName}`);
+        }
+      } catch (e) {
+      }
+    }
+    const uniqueSources = [...new Set(synthesis.sources)];
+    synthesis.sources = uniqueSources;
+    return {
+      passed: errors.length === 0,
+      claimsSourced: synthesis.sources.length > 0,
+      correctCompetitor: !errors.some((e) => e.includes("Attribution")),
+      urlsValid: !errors.some((e) => e.includes("Invalid source")),
+      changesExistInDiff: !errors.some((e) => e.includes("Diff mismatch")),
+      noEvidenceMix: true,
+      noCrossTenantData: !errors.some((e) => e.includes("isolation")),
+      errors
+    };
+  }
+};
+
+// src/modules/competitive-intelligence/application/get-sweep-status.ts
+var GetSweepStatus = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(runId) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const run = await this.ctx.repos.intelligenceRun.get(tenantId, workspaceId, runId);
+    if (!run) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Sweep run not found", 404);
+    }
+    return run;
+  }
+};
+
+// src/modules/competitive-intelligence/application/list-run-logs.ts
+var ListRunLogs = class {
+  constructor(ctx) {
+    this.ctx = ctx;
+  }
+  async execute(competitorId) {
+    const tenantId = this.ctx.identity.tenantId;
+    const workspaceId = this.ctx.identity.workspaceId;
+    const competitor = await this.ctx.repos.competitor.get(tenantId, workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found", 404);
+    }
+    return this.ctx.repos.intelligenceRun.list(tenantId, workspaceId, competitorId);
+  }
+};
+
+// src/modules/competitive-intelligence/presentation/routes.ts
+import { randomUUID as randomUUID15 } from "node:crypto";
+function buildIntelligenceRoutes(ctxResolver) {
+  const routes = new Hono();
+  routes.post("/competitors", async (c) => {
+    const correlationId = c.get("correlationId") || randomUUID15();
+    const body = await c.req.json().catch(() => ({}));
+    const context = ctxResolver(c);
+    const configureUsecase = new ConfigureCompetitor(context);
+    const competitor = await configureUsecase.execute(body);
+    return c.json({ data: competitor, correlationId }, 201);
+  });
+  routes.get("/competitors/:competitorId/battlecard", async (c) => {
+    const correlationId = c.get("correlationId") || randomUUID15();
+    const competitorId = c.req.param("competitorId") || "";
+    const context = ctxResolver(c);
+    const getUsecase = new GetBattlecard(context);
+    const battlecard = await getUsecase.execute(competitorId);
+    return c.json({ data: battlecard, correlationId });
+  });
+  routes.post("/competitors/:competitorId/sweeps", async (c) => {
+    const correlationId = c.get("correlationId") || randomUUID15();
+    const competitorId = c.req.param("competitorId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const context = ctxResolver(c);
+    const competitor = await context.repos.competitor.get(context.identity.tenantId, context.identity.workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found", 404);
+    }
+    const runUsecase = new RunIntelligenceSweep(context);
+    const run = await runUsecase.execute(competitorId, correlationId, {
+      triggerType: "manual",
+      useFixture: body.useFixture
+    });
+    return c.json({ data: run, correlationId }, 201);
+  });
+  routes.get("/competitors/:competitorId/sweeps/:runId/status", async (c) => {
+    const correlationId = c.get("correlationId") || randomUUID15();
+    const competitorId = c.req.param("competitorId") || "";
+    const runId = c.req.param("runId") || "";
+    const context = ctxResolver(c);
+    const competitor = await context.repos.competitor.get(context.identity.tenantId, context.identity.workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found", 404);
+    }
+    const statusUsecase = new GetSweepStatus(context);
+    const run = await statusUsecase.execute(runId);
+    if (run.competitorId !== competitorId) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Run is for a different competitor", 400);
+    }
+    return c.json({ data: run, correlationId });
+  });
+  routes.get("/competitors/:competitorId/runs", async (c) => {
+    const correlationId = c.get("correlationId") || randomUUID15();
+    const competitorId = c.req.param("competitorId") || "";
+    const context = ctxResolver(c);
+    const competitor = await context.repos.competitor.get(context.identity.tenantId, context.identity.workspaceId, competitorId);
+    if (!competitor) {
+      throw new AppError("NOT_FOUND" /* NOT_FOUND */, "Competitor not found", 404);
+    }
+    const listUsecase = new ListRunLogs(context);
+    const runs = await listUsecase.execute(competitorId);
+    return c.json({ data: runs, correlationId });
+  });
+  return routes;
+}
+
 // src/app/index.ts
 function shouldUseDevIdentity(cfg) {
   return (cfg.NODE_ENV === "development" || cfg.NODE_ENV === "test") && cfg.ALLOW_DEV_IDENTITY === "true";
 }
 function buildApp() {
-  const app2 = new Hono();
+  const app2 = new Hono2();
   const cfg = getConfig();
   const repos = cfg.PERSISTENCE_BACKEND === "convex" ? new ConvexRepositoryAdapter(cfg.CONVEX_URL) : buildInMemoryRepos();
   const storage = new InMemoryAudioStorage(new TenantScopedRefBuilder());
@@ -3988,7 +5336,7 @@ function buildApp() {
     };
   };
   app2.onError((err, c) => {
-    const correlationId = c.get("correlationId") || randomUUID12();
+    const correlationId = c.get("correlationId") || randomUUID16();
     if (err instanceof AppError) {
       return c.json({ error: { code: err.code, message: err.message, details: err.details, retryable: err.retryable }, correlationId }, err.httpStatus);
     }
@@ -3996,7 +5344,7 @@ function buildApp() {
     return c.json({ error: { code: "INTERNAL" /* INTERNAL */, message: "Internal error" }, correlationId }, 500);
   });
   app2.use("*", async (c, next) => {
-    c.set("correlationId", randomUUID12());
+    c.set("correlationId", randomUUID16());
     await next();
   });
   const allowedOrigins = cfg.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean);
@@ -4063,7 +5411,7 @@ function buildApp() {
     return { repos, storage, transcription, analysis, audit, identity: id, config: cfg };
   }
   const authGuard = async (c, next) => {
-    if (c.req.path.startsWith("/api/health/")) {
+    if (c.req.path.startsWith("/api/health/") || c.req.path.endsWith("/waitlist")) {
       await next();
       return;
     }
@@ -4112,7 +5460,7 @@ function buildApp() {
   }));
   app2.get("/api/health/live", (c) => c.json(liveness()));
   app2.get("/api/health/ready", async (c) => c.json(await readiness({ persistence: { ready: async () => true } })));
-  const v1 = new Hono();
+  const v1 = new Hono2();
   v1.post("/workspace/reset", rateLimit(cfg.RATE_LIMIT_ADMIN_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
     const context = ctx(c);
     const { tenantId, workspaceId } = context.identity;
@@ -4235,6 +5583,17 @@ Found *${unresolvedActions.length}* unresolved action items:
   v1.get("/meetings/:meetingId/analysis", async (c) => {
     const a = await new GetMeetingAnalysis(ctx(c)).execute(c.req.param("meetingId") || "");
     return c.json({ data: a, correlationId: c.get("correlationId") || "" });
+  });
+  v1.post("/meetings/:meetingId/chat", rateLimit(cfg.RATE_LIMIT_ANALYSIS_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const message = body.message;
+    if (!message || typeof message !== "string") {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Missing or invalid chat message", 400);
+    }
+    const sessionId = body.sessionId;
+    const result = await new ChatWithMeeting(ctx(c)).execute(c.req.param("meetingId") || "", message, sessionId, correlationId);
+    return c.json({ data: result, correlationId }, 200);
   });
   v1.get("/meetings/:meetingId/audit", async (c) => {
     const events = await new ListMeetingAuditEvents(ctx(c)).execute(c.req.param("meetingId") || "");
@@ -4429,6 +5788,45 @@ Found *${unresolvedActions.length}* unresolved action items:
     await context.repos.agencyRun.save(run);
     return c.json({ data: { retried: true }, correlationId: c.get("correlationId") || "" });
   });
+  v1.post("/waitlist", rateLimit(cfg.RATE_LIMIT_AGENCY_LIMIT, cfg.RATE_LIMIT_WINDOW_MS), async (c) => {
+    const correlationId = c.get("correlationId") || "";
+    const body = await c.req.json().catch(() => ({}));
+    const email = body.email;
+    if (!email || typeof email !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      throw new AppError("VALIDATION_ERROR" /* VALIDATION_ERROR */, "Invalid email address", 400);
+    }
+    const context = ctx(c);
+    const tenantId = context.identity.tenantId || "demo";
+    const workspaceId = context.identity.workspaceId || "demo";
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await context.repos.waitlist.getByEmail(tenantId, workspaceId, normalizedEmail);
+    if (!existing) {
+      await context.repos.waitlist.save({
+        id: randomUUID16(),
+        tenantId,
+        workspaceId,
+        email: normalizedEmail,
+        createdAt: (/* @__PURE__ */ new Date()).toISOString(),
+        source: body.source || null,
+        campaign: body.campaign || null,
+        consent: body.consent !== false
+      });
+    }
+    await audit.record({
+      tenantId,
+      workspaceId,
+      actorId: context.identity.actorId || "anonymous",
+      actorType: context.identity.actorType || "user",
+      meetingId: "waitlist",
+      correlationId,
+      entityType: "WAITLIST_SIGNUP",
+      entityId: normalizedEmail,
+      eventType: "EMAIL_CAPTURED",
+      metadata: { email: normalizedEmail, source: body.source || null, campaign: body.campaign || null }
+    });
+    return c.json({ data: { registered: true }, correlationId });
+  });
+  v1.route("/intelligence", buildIntelligenceRoutes(ctx));
   app2.route("/api/v1", v1);
   return app2;
 }

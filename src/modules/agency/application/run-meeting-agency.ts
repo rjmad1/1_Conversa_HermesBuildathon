@@ -96,17 +96,9 @@ export class RunMeetingAgency {
     let accumulatedFindings: any = { decisions: [], risks: [], proposedActions: [] };
 
     try {
-      let parentStepId: string | null = null;
+      const activeSteps = plan.steps.filter(stepConfig => !stepConfig.skipped && stepConfig.agentRole !== "QA_REVIEWER");
 
-      for (const stepConfig of plan.steps) {
-        if (stepConfig.skipped) {
-          continue;
-        }
-
-        if (stepConfig.agentRole === "QA_REVIEWER") {
-          continue; // Run QA as part of each specialist step or at the end
-        }
-
+      const stepPromises = activeSteps.map(async (stepConfig) => {
         const stepId = randomUUID();
         const stepStartedAt = new Date().toISOString();
 
@@ -116,7 +108,7 @@ export class RunMeetingAgency {
           runId,
           tenantId,
           workspaceId,
-          parentStepId,
+          parentStepId: null, // Concurrently executed steps have no parent sequential linkage
           agentRole: stepConfig.agentRole,
           taskType: stepConfig.taskType,
           startedAt: stepStartedAt,
@@ -141,14 +133,14 @@ export class RunMeetingAgency {
           metadata: { agentRole: stepConfig.agentRole },
         });
 
-        // Handoff Memory Envelope
+        // Handoff Memory Envelope - starts clean for parallel extractors
         const handoff: AgentHandoff = {
           fromAgent: "MANAGER",
           toAgent: stepConfig.agentRole,
           runId,
           taskId: stepId,
           relevantContext: transcript.content,
-          priorFindings: accumulatedFindings,
+          priorFindings: { decisions: [], risks: [], proposedActions: [] },
           policyConstraints: [],
           unresolvedQuestions: [],
         };
@@ -163,16 +155,12 @@ export class RunMeetingAgency {
         while (revisionCount <= 1) {
           const execRes = await this.executor.execute(stepConfig.agentRole as any, handoff);
           findings = execRes.findings;
-          totalInputTokens += execRes.tokens.input;
-          totalOutputTokens += execRes.tokens.output;
 
           stepTrace.inputTokens += execRes.tokens.input;
           stepTrace.outputTokens += execRes.tokens.output;
 
           // Run QA Reviewer
           const reviewRes = await this.reviewer.execute(findings, handoff);
-          totalInputTokens += reviewRes.tokens.input;
-          totalOutputTokens += reviewRes.tokens.output;
 
           stepTrace.inputTokens += reviewRes.tokens.input;
           stepTrace.outputTokens += reviewRes.tokens.output;
@@ -223,23 +211,37 @@ export class RunMeetingAgency {
           metadata: { agentRole: stepConfig.agentRole, outcome: stepStatus, escalationReason: stepEscalationReason },
         });
 
-        if (stepStatus === "ESCALATED") {
-          run.status = "ESCALATED";
-          run.completedAt = new Date().toISOString();
-          run.totalLatencyMs = Date.now() - startMs;
-          run.totalInputTokens = totalInputTokens;
-          run.totalOutputTokens = totalOutputTokens;
-          run.estimatedCost = estimateCost(this.ctx.analysis.name, this.ctx.config.ANALYSIS_MODEL || "fake", totalInputTokens, totalOutputTokens);
-          await (this.ctx.repos as any).agencyRun.save(run);
-          return run;
-        }
+        return { stepConfig, stepTrace, stepStatus, findings };
+      });
 
-        // Accumulate findings
+      const stepResults = await Promise.all(stepPromises);
+
+      // Check if any specialist step was escalated
+      const escalation = stepResults.find(r => r.stepStatus === "ESCALATED");
+      if (escalation) {
+        // Collect tokens/costs from all completed/attempted steps
+        for (const r of stepResults) {
+          totalInputTokens += r.stepTrace.inputTokens;
+          totalOutputTokens += r.stepTrace.outputTokens;
+        }
+        run.status = "ESCALATED";
+        run.completedAt = new Date().toISOString();
+        run.totalLatencyMs = Date.now() - startMs;
+        run.totalInputTokens = totalInputTokens;
+        run.totalOutputTokens = totalOutputTokens;
+        run.estimatedCost = estimateCost(this.ctx.analysis.name, this.ctx.config.ANALYSIS_MODEL || "fake", totalInputTokens, totalOutputTokens);
+        await (this.ctx.repos as any).agencyRun.save(run);
+        return run;
+      }
+
+      // If no escalation, accumulate findings and tokens
+      for (const r of stepResults) {
+        totalInputTokens += r.stepTrace.inputTokens;
+        totalOutputTokens += r.stepTrace.outputTokens;
+        const findings = r.findings;
         if (findings.decisions) accumulatedFindings.decisions.push(...findings.decisions);
         if (findings.risks) accumulatedFindings.risks.push(...findings.risks);
         if (findings.proposedActions) accumulatedFindings.proposedActions.push(...findings.proposedActions);
-
-        parentStepId = stepId;
       }
 
       // Finish successfully or pause before final approval

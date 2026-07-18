@@ -1,4 +1,4 @@
-import type { MeetingAnalysisProvider, AnalyzeInput } from "../../modules/analysis/domain/provider";
+import type { MeetingAnalysisProvider, AnalyzeInput, ChatInput } from "../../modules/analysis/domain/provider";
 import type { MeetingAnalysis } from "../../shared/validation/schemas";
 import { randomUUID } from "node:crypto";
 
@@ -219,12 +219,20 @@ export class FakeAnalysisProvider implements MeetingAnalysisProvider {
       createdAt: now,
     };
   }
+
+  async chat(input: ChatInput): Promise<string> {
+    return "Fake chat response.";
+  }
 }
 
 export class FailingAnalysisProvider implements MeetingAnalysisProvider {
   readonly name = "fake-failing";
   async analyze(_input: AnalyzeInput): Promise<MeetingAnalysis> {
     throw new Error("analysis provider unavailable");
+  }
+
+  async chat(_input: ChatInput): Promise<string> {
+    throw new Error("chat provider unavailable");
   }
 }
 

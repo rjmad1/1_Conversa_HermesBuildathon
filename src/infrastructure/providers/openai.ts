@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import type { AudioTranscriptionProvider, TranscribeInput } from "../../modules/transcription/domain/provider";
-import type { MeetingAnalysisProvider, AnalyzeInput } from "../../modules/analysis/domain/provider";
+import type { MeetingAnalysisProvider, AnalyzeInput, ChatInput } from "../../modules/analysis/domain/provider";
 import type { MeetingAnalysis, TranscriptResult } from "../../shared/validation/schemas";
 import { MeetingAnalysisSchema } from "../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../shared/errors/AppError";
@@ -119,7 +119,43 @@ export class OpenAIAnalysisProvider implements MeetingAnalysisProvider {
       }
     }
   }
+
+  async chat(input: ChatInput): Promise<string> {
+    let attempt = 0;
+    const systemPrompt = `You are an AI assistant for a meeting platform. You are provided with the full meeting transcript below. Please answer the user's questions based on the transcript. If the transcript does not contain the answer, say so.\n\nTRANSCRIPT:\n${input.transcriptContent}`;
+    
+    // Map existing chat messages
+    const apiMessages: any[] = [
+      { role: "system", content: systemPrompt },
+      ...input.messages.map(m => ({
+        role: m.role,
+        content: m.content
+      }))
+    ];
+
+    while (true) {
+      try {
+        const res = await this.client.chat.completions.create(
+          {
+            model: this.model,
+            temperature: 0.5,
+            messages: apiMessages,
+          },
+          { timeout: this.timeoutMs }
+        );
+        return res.choices[0]?.message?.content ?? "";
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        attempt++;
+        if (attempt > this.maxRetries) {
+          logger.error({ correlationId: input.correlationId, operation: "chat" }, "chat failed");
+          throw new AppError(ErrorCode.PROVIDER_ERROR, "Chat provider error", 502, undefined, true);
+        }
+      }
+    }
+  }
 }
+
 
 function analysisJsonSchema(): JsonSchema {
   return {

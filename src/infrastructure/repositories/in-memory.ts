@@ -6,6 +6,7 @@ import type {
   AnalysisRunRepo,
   MeetingAnalysisRepo,
   AuditRepo,
+  WaitlistRepo,
 } from "../../modules/meetings/domain/repositories";
 import type {
   Meeting,
@@ -17,10 +18,24 @@ import type {
   ProposedAction,
   ApprovalDecision,
   AuditEvent,
+  WaitlistEntry,
 } from "../../shared/validation/schemas";
 import { AppError, ErrorCode } from "../../shared/errors/AppError";
 import type { AgencyRunRepo } from "../../modules/agency/domain/repositories";
 import { InMemoryAgencyRunRepo } from "../../modules/agency/infrastructure/agency-repository";
+import type {
+  CompetitorRepo,
+  IntelligenceSnapshotRepo,
+  IntelligenceRunRepo,
+  BattlecardRepo,
+} from "../../modules/competitive-intelligence/domain/ports";
+import {
+  InMemoryCompetitorRepo,
+  InMemoryIntelligenceSnapshotRepo,
+  InMemoryIntelligenceRunRepo,
+  InMemoryBattlecardRepo,
+} from "../../modules/competitive-intelligence/infrastructure/in-memory-repositories";
+import type { ChatRepo, ChatSession, ChatMessage } from "../../modules/analysis/domain/chat";
 
 function scopeMatch(a: { tenantId?: string; workspaceId?: string }, tenantId: string, workspaceId: string): boolean {
   if (!a.tenantId || !a.workspaceId || !tenantId || !workspaceId) return false;
@@ -188,6 +203,53 @@ export class InMemoryAuditRepo implements AuditRepo {
   }
 }
 
+export class InMemoryWaitlistRepo implements WaitlistRepo {
+  private entries = new Map<string, WaitlistEntry>();
+
+  async save(entry: WaitlistEntry): Promise<void> {
+    this.entries.set(entry.id, entry);
+  }
+
+  async getByEmail(tenantId: string, workspaceId: string, email: string): Promise<WaitlistEntry | null> {
+    const normalized = email.toLowerCase().trim();
+    return (
+      [...this.entries.values()].find(
+        (e) => e.email.toLowerCase().trim() === normalized && scopeMatch(e, tenantId, workspaceId)
+      ) ?? null
+    );
+  }
+
+  async list(tenantId: string, workspaceId: string): Promise<WaitlistEntry[]> {
+    return [...this.entries.values()].filter((e) => scopeMatch(e, tenantId, workspaceId));
+  }
+}
+
+export class InMemoryChatRepo implements ChatRepo {
+  public sessions = new Map<string, ChatSession>();
+  public messages: ChatMessage[] = [];
+
+  async saveSession(session: ChatSession): Promise<void> {
+    this.sessions.set(session.id, session);
+  }
+
+  async getSession(tenantId: string, workspaceId: string, id: string): Promise<ChatSession | null> {
+    const s = this.sessions.get(id);
+    return s && scopeMatch(s, tenantId, workspaceId) ? s : null;
+  }
+
+  async saveMessage(message: ChatMessage): Promise<void> {
+    this.messages.push(message);
+  }
+
+  async listMessages(sessionId: string): Promise<ChatMessage[]> {
+    return this.messages
+      .filter((m) => m.sessionId === sessionId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+}
+
+
+
 export interface Repos {
   meeting: MeetingRepo;
   audio: AudioAssetRepo;
@@ -196,6 +258,12 @@ export interface Repos {
   meetingAnalysis: MeetingAnalysisRepo;
   audit: AuditRepo;
   agencyRun: AgencyRunRepo;
+  waitlist: WaitlistRepo;
+  competitor: CompetitorRepo;
+  intelligenceSnapshot: IntelligenceSnapshotRepo;
+  intelligenceRun: IntelligenceRunRepo;
+  battlecard: BattlecardRepo;
+  chat: ChatRepo;
 }
 
 export function buildInMemoryRepos(): Repos {
@@ -209,6 +277,12 @@ export function buildInMemoryRepos(): Repos {
   );
   const audit = new InMemoryAuditRepo();
   const agencyRun = new InMemoryAgencyRunRepo();
+  const waitlist = new InMemoryWaitlistRepo();
+  const competitor = new InMemoryCompetitorRepo();
+  const intelligenceSnapshot = new InMemoryIntelligenceSnapshotRepo();
+  const intelligenceRun = new InMemoryIntelligenceRunRepo();
+  const battlecard = new InMemoryBattlecardRepo();
+  const chat = new InMemoryChatRepo();
   return {
     meeting,
     audio,
@@ -217,6 +291,12 @@ export function buildInMemoryRepos(): Repos {
     meetingAnalysis,
     audit,
     agencyRun,
+    waitlist,
+    competitor,
+    intelligenceSnapshot,
+    intelligenceRun,
+    battlecard,
+    chat,
   };
 }
 
@@ -303,6 +383,67 @@ export function resetWorkspaceData(repos: Repos, tenantId: string, workspaceId: 
         agencyRunRepo.steps.delete(id);
       }
     }
+  }
+
+  // 9. Delete waitlist entries
+  const waitlistRepo = repos.waitlist as InMemoryWaitlistRepo;
+  if (waitlistRepo && (waitlistRepo as any).entries) {
+    for (const [id, entry] of [...(waitlistRepo as any).entries.entries()]) {
+      if (entry.tenantId === tenantId && entry.workspaceId === workspaceId) {
+        (waitlistRepo as any).entries.delete(id);
+      }
+    }
+  }
+
+  // 10. Delete competitive intelligence
+  const competitorRepo = repos.competitor as InMemoryCompetitorRepo;
+  if (competitorRepo && competitorRepo.competitors) {
+    for (const [id, c] of [...competitorRepo.competitors.entries()]) {
+      if (c.tenantId === tenantId && c.workspaceId === workspaceId) {
+        competitorRepo.competitors.delete(id);
+      }
+    }
+  }
+  const snapshotRepo = repos.intelligenceSnapshot as InMemoryIntelligenceSnapshotRepo;
+  if (snapshotRepo && snapshotRepo.snapshots) {
+    for (const [id, s] of [...snapshotRepo.snapshots.entries()]) {
+      if (s.tenantId === tenantId && s.workspaceId === workspaceId) {
+        snapshotRepo.snapshots.delete(id);
+      }
+    }
+  }
+  const intelRunRepo = repos.intelligenceRun as InMemoryIntelligenceRunRepo;
+  if (intelRunRepo && intelRunRepo.runs) {
+    for (const [id, r] of [...intelRunRepo.runs.entries()]) {
+      if (r.tenantId === tenantId && r.workspaceId === workspaceId) {
+        intelRunRepo.runs.delete(id);
+      }
+    }
+  }
+  const battlecardRepo = repos.battlecard as InMemoryBattlecardRepo;
+  if (battlecardRepo && battlecardRepo.battlecards) {
+    for (const [id, b] of [...battlecardRepo.battlecards.entries()]) {
+      if (b.tenantId === tenantId && b.workspaceId === workspaceId) {
+        battlecardRepo.battlecards.delete(id);
+      }
+    }
+  }
+
+  // 11. Delete chat sessions and messages
+  const chatRepo = repos.chat as InMemoryChatRepo;
+  if (chatRepo && chatRepo.sessions) {
+    for (const [id, s] of [...chatRepo.sessions.entries()]) {
+      if (s.tenantId === tenantId && s.workspaceId === workspaceId) {
+        chatRepo.sessions.delete(id);
+      }
+    }
+  }
+  if (chatRepo && chatRepo.messages) {
+    // Collect session IDs that belong to the deleted tenant/workspace or deleted meetings
+    const activeSessionIds = new Set(
+      [...chatRepo.sessions.values()].map(s => s.id)
+    );
+    chatRepo.messages = chatRepo.messages.filter(m => activeSessionIds.has(m.sessionId));
   }
 }
 

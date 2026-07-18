@@ -5,6 +5,7 @@ import type {
   AnalysisRunRepo,
   MeetingAnalysisRepo,
   AuditRepo,
+  WaitlistRepo,
 } from "../../modules/meetings/domain/repositories";
 import type {
   Meeting,
@@ -16,6 +17,7 @@ import type {
   ProposedAction,
   ApprovalDecision,
   AuditEvent,
+  WaitlistEntry,
 } from "../../shared/validation/schemas";
 import type { AgencyRunRepo } from "../../modules/agency/domain/repositories";
 import type { AgencyRun, AgencyStep } from "../../modules/agency/domain/agent-run";
@@ -23,6 +25,17 @@ import { AppError, ErrorCode } from "../../shared/errors/AppError";
 import { logger } from "../../shared/logging/logger";
 import { buildInMemoryRepos, resetWorkspaceData } from "./in-memory";
 import type { Repos } from "./in-memory";
+import type {
+  CompetitorRepo,
+  IntelligenceSnapshotRepo,
+  IntelligenceRunRepo,
+  BattlecardRepo,
+} from "../../modules/competitive-intelligence/domain/ports";
+import type { Competitor } from "../../modules/competitive-intelligence/domain/competitor";
+import type { IntelligenceSnapshot } from "../../modules/competitive-intelligence/domain/intelligence-snapshot";
+import type { IntelligenceRun } from "../../modules/competitive-intelligence/domain/intelligence-run";
+import type { Battlecard } from "../../modules/competitive-intelligence/domain/battlecard";
+import type { ChatRepo, ChatSession, ChatMessage } from "../../modules/analysis/domain/chat";
 
 export class ConvexRepositoryAdapter implements Repos {
   meeting: MeetingRepo;
@@ -32,6 +45,12 @@ export class ConvexRepositoryAdapter implements Repos {
   meetingAnalysis: MeetingAnalysisRepo;
   audit: AuditRepo;
   agencyRun: AgencyRunRepo;
+  waitlist: WaitlistRepo;
+  competitor: CompetitorRepo;
+  intelligenceSnapshot: IntelligenceSnapshotRepo;
+  intelligenceRun: IntelligenceRunRepo;
+  battlecard: BattlecardRepo;
+  chat: ChatRepo;
 
   private fallback: Repos;
   private convexUrl: string | null;
@@ -271,6 +290,149 @@ export class ConvexRepositoryAdapter implements Repos {
           return self.convexCall("queries/agency/listSteps", { tenantId, workspaceId, runId }) || [];
         }
         return self.fallback.agencyRun.listSteps(tenantId, workspaceId, runId);
+      }
+    };
+
+    // 8. WaitlistRepo
+    this.waitlist = {
+      async save(entry: WaitlistEntry): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/waitlist/save", { entry });
+        } else {
+          await self.fallback.waitlist.save(entry);
+        }
+      },
+      async getByEmail(tenantId: string, workspaceId: string, email: string): Promise<WaitlistEntry | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/waitlist/getByEmail", { tenantId, workspaceId, email });
+        }
+        return self.fallback.waitlist.getByEmail(tenantId, workspaceId, email);
+      },
+      async list(tenantId: string, workspaceId: string): Promise<WaitlistEntry[]> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/waitlist/list", { tenantId, workspaceId }) || [];
+        }
+        return self.fallback.waitlist.list(tenantId, workspaceId);
+      }
+    };
+
+    // 9. CompetitorRepo
+    this.competitor = {
+      async save(c: Competitor): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveCompetitor", { competitor: c });
+        } else {
+          await self.fallback.competitor.save(c);
+        }
+      },
+      async get(tenantId: string, workspaceId: string, id: string): Promise<Competitor | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getCompetitor", { tenantId, workspaceId, id });
+        }
+        return self.fallback.competitor.get(tenantId, workspaceId, id);
+      },
+      async list(tenantId: string, workspaceId: string): Promise<Competitor[]> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listCompetitors", { tenantId, workspaceId }) || [];
+        }
+        return self.fallback.competitor.list(tenantId, workspaceId);
+      }
+    };
+
+    // 10. IntelligenceSnapshotRepo
+    this.intelligenceSnapshot = {
+      async save(s: IntelligenceSnapshot): Promise<void> {
+        if (self.convexUrl) {
+          await self.fallback.intelligenceSnapshot.save(s);
+        }
+      },
+      async get(tenantId: string, workspaceId: string, id: string): Promise<IntelligenceSnapshot | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getSnapshot", { tenantId, workspaceId, id });
+        }
+        return self.fallback.intelligenceSnapshot.get(tenantId, workspaceId, id);
+      },
+      async getLatestByCategory(tenantId: string, workspaceId: string, competitorId: string, category: string): Promise<IntelligenceSnapshot | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getLatestSnapshotByCategory", { tenantId, workspaceId, competitorId, category });
+        }
+        return self.fallback.intelligenceSnapshot.getLatestByCategory(tenantId, workspaceId, competitorId, category);
+      },
+      async listForRun(tenantId: string, workspaceId: string, runId: string): Promise<IntelligenceSnapshot[]> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listSnapshotsForRun", { tenantId, workspaceId, runId }) || [];
+        }
+        return self.fallback.intelligenceSnapshot.listForRun(tenantId, workspaceId, runId);
+      }
+    };
+
+    // 11. IntelligenceRunRepo
+    this.intelligenceRun = {
+      async save(r: IntelligenceRun): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveRun", { run: r });
+        } else {
+          await self.fallback.intelligenceRun.save(r);
+        }
+      },
+      async get(tenantId: string, workspaceId: string, runId: string): Promise<IntelligenceRun | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getRun", { tenantId, workspaceId, runId });
+        }
+        return self.fallback.intelligenceRun.get(tenantId, workspaceId, runId);
+      },
+      async list(tenantId: string, workspaceId: string, competitorId?: string): Promise<IntelligenceRun[]> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/listRuns", { tenantId, workspaceId, competitorId }) || [];
+        }
+        return self.fallback.intelligenceRun.list(tenantId, workspaceId, competitorId);
+      }
+    };
+
+    // 12. BattlecardRepo
+    this.battlecard = {
+      async save(b: Battlecard): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/intelligence/saveBattlecard", { battlecard: b });
+        } else {
+          await self.fallback.battlecard.save(b);
+        }
+      },
+      async get(tenantId: string, workspaceId: string, competitorId: string): Promise<Battlecard | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/intelligence/getBattlecard", { tenantId, workspaceId, competitorId });
+        }
+        return self.fallback.battlecard.get(tenantId, workspaceId, competitorId);
+      }
+    };
+
+    // 13. ChatRepo
+    this.chat = {
+      async getSession(tenantId: string, workspaceId: string, id: string): Promise<ChatSession | null> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/chat/getSession", { tenantId, workspaceId, id });
+        }
+        return self.fallback.chat.getSession(tenantId, workspaceId, id);
+      },
+      async saveSession(session: ChatSession): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/chat/saveSession", { session });
+        } else {
+          await self.fallback.chat.saveSession(session);
+        }
+      },
+      async saveMessage(message: ChatMessage): Promise<void> {
+        if (self.convexUrl) {
+          await self.convexCall("mutations/chat/saveMessage", { message });
+        } else {
+          await self.fallback.chat.saveMessage(message);
+        }
+      },
+      async listMessages(sessionId: string): Promise<ChatMessage[]> {
+        if (self.convexUrl) {
+          return self.convexCall("queries/chat/listMessages", { sessionId }) || [];
+        }
+        return self.fallback.chat.listMessages(sessionId);
       }
     };
   }

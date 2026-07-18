@@ -37,6 +37,9 @@ jobs:
       - name: Run E2E Tests
         run: npm run test:e2e
 
+      - name: Run Agency Evaluation
+        run: npm run eval:agency
+
       - name: Production Build
         run: npm run build
 

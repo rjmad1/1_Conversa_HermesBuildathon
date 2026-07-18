@@ -210,3 +210,14 @@ export const TranscriptResultSchema = z.object({
   ),
 });
 export type TranscriptResult = z.infer<typeof TranscriptResultSchema>;
+
+export const WaitlistEntrySchema = TenantScopeSchema.extend({
+  id: z.string().uuid(),
+  email: z.string().email(),
+  createdAt: ISO,
+  source: z.string().optional().nullable(),
+  campaign: z.string().optional().nullable(),
+  consent: z.boolean().default(true),
+});
+export type WaitlistEntry = z.infer<typeof WaitlistEntrySchema>;
+
