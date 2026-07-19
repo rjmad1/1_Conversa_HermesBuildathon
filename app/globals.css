@@ -1,0 +1,243 @@
+/* ─── Google Fonts ─── */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;800&display=swap");
+
+@import "tailwindcss";
+
+/* ─── TailwindCSS v4 Theme ─── */
+@theme {
+  /* Brand Colors — evolved from claymorphic pastels to enterprise-grade */
+  --color-brand-50: #f0edff;
+  --color-brand-100: #e3d5ff;
+  --color-brand-200: #c9b0ff;
+  --color-brand-300: #a68dff;
+  --color-brand-400: #8b6cef;
+  --color-brand-500: #6c5ce7;
+  --color-brand-600: #5a48c9;
+  --color-brand-700: #4c378a;
+  --color-brand-800: #3a2a6e;
+  --color-brand-900: #2a1f52;
+
+  /* Accent — Emerald */
+  --color-accent-50: #edfdf4;
+  --color-accent-100: #d2ffd4;
+  --color-accent-200: #a8f0b0;
+  --color-accent-300: #6ee37e;
+  --color-accent-400: #3ccc52;
+  --color-accent-500: #2fbf71;
+  --color-accent-600: #22a05c;
+  --color-accent-700: #1a7d48;
+  --color-accent-800: #225c27;
+  --color-accent-900: #164a1e;
+
+  /* Semantic */
+  --color-success-500: #2fbf71;
+  --color-warning-500: #f0a030;
+  --color-error-500: #ef4444;
+  --color-info-500: #3b82f6;
+
+  /* Fonts */
+  --font-heading: "Outfit", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", monospace;
+
+  /* Border Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.5rem;
+  --radius-full: 9999px;
+
+  /* Shadows — enterprise-grade */
+  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+
+  /* Clay Shadows — hero/feature card use */
+  --shadow-clay: 8px 8px 16px rgba(163, 177, 198, 0.3), -8px -8px 16px rgba(255, 255, 255, 0.7), inset 4px 4px 8px rgba(255, 255, 255, 0.6), inset -4px -4px 8px rgba(0, 0, 0, 0.05);
+  --shadow-clay-purple: 8px 8px 16px rgba(195, 176, 240, 0.4), -8px -8px 16px rgba(255, 255, 255, 0.9), inset 4px 4px 8px rgba(255, 255, 255, 0.7), inset -4px -4px 8px rgba(76, 55, 138, 0.15);
+  --shadow-clay-hover: 12px 12px 24px rgba(163, 177, 198, 0.4), -12px -12px 24px rgba(255, 255, 255, 0.8), inset 4px 4px 8px rgba(255, 255, 255, 0.6), inset -4px -4px 8px rgba(0, 0, 0, 0.05);
+  --shadow-clay-pressed: 2px 2px 4px rgba(163, 177, 198, 0.3), inset 4px 4px 8px rgba(0, 0, 0, 0.05);
+
+  /* Animations */
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --animate-shimmer: shimmer 2s infinite;
+  --animate-fade-in: fade-in 0.3s var(--ease-out);
+  --animate-slide-up: slide-up 0.4s var(--ease-out);
+  --animate-scale-in: scale-in 0.3s var(--ease-spring);
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes slide-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+}
+
+/* ─── CSS Custom Properties for Light/Dark ─── */
+:root {
+  --background: #f8f9fc;
+  --foreground: #1a1a2e;
+  --muted: #64748b;
+  --muted-foreground: #94a3b8;
+  --card: #ffffff;
+  --card-foreground: #1a1a2e;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #6c5ce7;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #f1f5f9;
+  --sidebar-active: #f0edff;
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 68px;
+  --topbar-height: 56px;
+  --clay-bg-gradient: linear-gradient(135deg, #f0f4f9 0%, #d9e2ec 50%, #bcccdc 100%);
+}
+
+.dark {
+  --background: #0a0a14;
+  --foreground: #e2e8f0;
+  --muted: #94a3b8;
+  --muted-foreground: #64748b;
+  --card: #12121e;
+  --card-foreground: #e2e8f0;
+  --border: #1e293b;
+  --input: #1e293b;
+  --ring: #8b6cef;
+  --sidebar-bg: #0f0f1a;
+  --sidebar-border: #1e293b;
+  --sidebar-active: #1a1530;
+  --clay-bg-gradient: linear-gradient(135deg, #0a0a14 0%, #12121e 50%, #1a1a2e 100%);
+
+  /* Dark clay shadows */
+  --shadow-clay: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(30, 30, 50, 0.3), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-clay-purple: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(76, 55, 138, 0.15), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-clay-hover: 12px 12px 24px rgba(0, 0, 0, 0.5), -12px -12px 24px rgba(30, 30, 50, 0.3), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-clay-pressed: 2px 2px 4px rgba(0, 0, 0, 0.4), inset 4px 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── Base Styles ─── */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  background: var(--background);
+  color: var(--foreground);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Utility Classes: Hybrid Design ─── */
+
+/* Claymorphic Card — for hero/feature areas */
+.clay-card {
+  border-radius: var(--radius-2xl);
+  padding: 1.5rem;
+  background: var(--card);
+  box-shadow: var(--shadow-clay);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: box-shadow 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+.clay-card:hover {
+  box-shadow: var(--shadow-clay-hover);
+  transform: translateY(-2px);
+}
+
+.clay-card-purple {
+  background: var(--color-brand-100);
+  box-shadow: var(--shadow-clay-purple);
+}
+.dark .clay-card-purple {
+  background: var(--color-brand-900);
+}
+
+/* Flat Card — for data-heavy screens */
+.flat-card {
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.flat-card:hover {
+  border-color: var(--ring);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Glass Card — for overlays and modals */
+.glass-card {
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+.dark .glass-card {
+  background: rgba(0, 0, 0, 0.3);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
+}
+
+/* ─── Focus ─── */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* ─── Reduced Motion ─── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Skeleton Shimmer ─── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--border) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    var(--border) 75%
+  );
+  background-size: 400% 100%;
+  animation: var(--animate-shimmer);
+  border-radius: var(--radius-md);
+}

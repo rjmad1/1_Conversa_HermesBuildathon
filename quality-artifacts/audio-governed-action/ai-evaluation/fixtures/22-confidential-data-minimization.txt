@@ -1,4 +1,0 @@
-Priya: We need to update the production database credentials in the config manager.
-Rajeev: Understood. The new password is "AdminPass456!" and the connection string is "postgresql://admin:AdminPass456!@prod-db.conversa.internal:5432/main".
-Priya: I will write a script to rotate these credentials tomorrow. Please do not write down the password in cleartext.
-Rajeev: Got it.

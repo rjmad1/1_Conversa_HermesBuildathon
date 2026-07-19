@@ -7,15 +7,15 @@ import { resetConfigForTests } from "../../src/shared/config";
 describe("Security Containment & Prototype Remediation Regression", () => {
   afterEach(() => {
     resetConfigForTests();
-    delete process.env.NODE_ENV;
-    delete process.env.AUTH_MODE;
-    delete process.env.ALLOW_DEV_IDENTITY;
-    delete process.env.PUBLIC_DEMO_MODE;
-    delete process.env.ALLOWED_ORIGINS;
-    delete process.env.PROD_AUTH_TOKENS;
-    delete process.env.OPENAI_API_KEY;
-    delete process.env.TRANSCRIPTION_PROVIDER;
-    delete process.env.ANALYSIS_PROVIDER;
+    delete (process.env as any).NODE_ENV;
+    delete (process.env as any).AUTH_MODE;
+    delete (process.env as any).ALLOW_DEV_IDENTITY;
+    delete (process.env as any).PUBLIC_DEMO_MODE;
+    delete (process.env as any).ALLOWED_ORIGINS;
+    delete (process.env as any).PROD_AUTH_TOKENS;
+    delete (process.env as any).OPENAI_API_KEY;
+    delete (process.env as any).TRANSCRIPTION_PROVIDER;
+    delete (process.env as any).ANALYSIS_PROVIDER;
   });
 
   describe("Configuration & Startup Validation in Production", () => {
@@ -66,13 +66,13 @@ describe("Security Containment & Prototype Remediation Regression", () => {
   describe("Identity Resolution & Authentication in Production", () => {
     const startAppInProd = () => {
       resetConfigForTests();
-      process.env.NODE_ENV = "production";
-      process.env.TRANSCRIPTION_PROVIDER = "openai";
-      process.env.ANALYSIS_PROVIDER = "openai";
-      process.env.OPENAI_API_KEY = "sk-test";
-      process.env.ALLOW_DEV_IDENTITY = "false";
-      process.env.PUBLIC_DEMO_MODE = "false";
-      process.env.PROD_AUTH_TOKENS = "admin:admin-token-xyz,approver:approver-token-xyz,viewer:viewer-token-xyz";
+      (process.env as any).NODE_ENV = "production";
+      (process.env as any).TRANSCRIPTION_PROVIDER = "openai";
+      (process.env as any).ANALYSIS_PROVIDER = "openai";
+      (process.env as any).OPENAI_API_KEY = "sk-test";
+      (process.env as any).ALLOW_DEV_IDENTITY = "false";
+      (process.env as any).PUBLIC_DEMO_MODE = "false";
+      (process.env as any).PROD_AUTH_TOKENS = "admin:admin-token-xyz,approver:approver-token-xyz,viewer:viewer-token-xyz";
       return buildApp();
     };
 
@@ -99,12 +99,12 @@ describe("Security Containment & Prototype Remediation Regression", () => {
 
     it("allows public read-only access (GET) when PUBLIC_DEMO_MODE=true", async () => {
       resetConfigForTests();
-      process.env.NODE_ENV = "production";
-      process.env.TRANSCRIPTION_PROVIDER = "openai";
-      process.env.ANALYSIS_PROVIDER = "openai";
-      process.env.OPENAI_API_KEY = "sk-test";
-      process.env.ALLOW_DEV_IDENTITY = "false";
-      process.env.PUBLIC_DEMO_MODE = "true"; // public demo enabled
+      (process.env as any).NODE_ENV = "production";
+      (process.env as any).TRANSCRIPTION_PROVIDER = "openai";
+      (process.env as any).ANALYSIS_PROVIDER = "openai";
+      (process.env as any).OPENAI_API_KEY = "sk-test";
+      (process.env as any).ALLOW_DEV_IDENTITY = "false";
+      (process.env as any).PUBLIC_DEMO_MODE = "true"; // public demo enabled
       const app = buildApp();
 
       // GET meeting (non-existent, should fall through to 404 meeting not found, not 401 unauth)
@@ -154,8 +154,8 @@ describe("Security Containment & Prototype Remediation Regression", () => {
   describe("Centralized Authorization Guard & Roles", () => {
     const startAppInDevWithFlags = () => {
       resetConfigForTests();
-      process.env.NODE_ENV = "development";
-      process.env.ALLOW_DEV_IDENTITY = "true";
+      (process.env as any).NODE_ENV = "development";
+      (process.env as any).ALLOW_DEV_IDENTITY = "true";
       return buildApp();
     };
 
@@ -227,12 +227,12 @@ describe("Security Containment & Prototype Remediation Regression", () => {
   describe("CORS Restrictions", () => {
     it("rejects unexpected origins in production CORS requests", async () => {
       resetConfigForTests();
-      process.env.NODE_ENV = "production";
-      process.env.TRANSCRIPTION_PROVIDER = "openai";
-      process.env.ANALYSIS_PROVIDER = "openai";
-      process.env.OPENAI_API_KEY = "sk-test";
-      process.env.ALLOW_DEV_IDENTITY = "false";
-      process.env.ALLOWED_ORIGINS = "https://trusted-site.com";
+      (process.env as any).NODE_ENV = "production";
+      (process.env as any).TRANSCRIPTION_PROVIDER = "openai";
+      (process.env as any).ANALYSIS_PROVIDER = "openai";
+      (process.env as any).OPENAI_API_KEY = "sk-test";
+      (process.env as any).ALLOW_DEV_IDENTITY = "false";
+      (process.env as any).ALLOWED_ORIGINS = "https://trusted-site.com";
       const app = buildApp();
 
       const res = await app.request("/api/v1/meetings", {
@@ -246,13 +246,13 @@ describe("Security Containment & Prototype Remediation Regression", () => {
 
     it("allows trusted origins in production CORS requests", async () => {
       resetConfigForTests();
-      process.env.NODE_ENV = "production";
-      process.env.TRANSCRIPTION_PROVIDER = "openai";
-      process.env.ANALYSIS_PROVIDER = "openai";
-      process.env.OPENAI_API_KEY = "sk-test";
-      process.env.ALLOW_DEV_IDENTITY = "false";
-      process.env.PUBLIC_DEMO_MODE = "true";
-      process.env.ALLOWED_ORIGINS = "https://trusted-site.com";
+      (process.env as any).NODE_ENV = "production";
+      (process.env as any).TRANSCRIPTION_PROVIDER = "openai";
+      (process.env as any).ANALYSIS_PROVIDER = "openai";
+      (process.env as any).OPENAI_API_KEY = "sk-test";
+      (process.env as any).ALLOW_DEV_IDENTITY = "false";
+      (process.env as any).PUBLIC_DEMO_MODE = "true";
+      (process.env as any).ALLOWED_ORIGINS = "https://trusted-site.com";
       const app = buildApp();
 
       const res = await app.request("/api/v1/meetings/00000000-0000-0000-0000-000000000000", {

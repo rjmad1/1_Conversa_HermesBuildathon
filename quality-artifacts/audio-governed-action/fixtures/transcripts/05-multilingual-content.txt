@@ -1,4 +1,0 @@
-Priya: Bonjour team. Let's discuss our progress.
-Rajeev: Sí, el lanzamiento de la beta será el 15. Priya owns the checklist.
-Priya: Très bien, I will handle that. Rajeev will draft the RFC by Friday.
-Rajeev: D'accord, je vais faire ça.

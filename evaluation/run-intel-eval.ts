@@ -132,7 +132,7 @@ async function runEvaluation() {
   const run4 = await sweep.execute(competitor.id, "corr-eval-4", { useFixture: true });
   
   qaTotalRejections++;
-  if (run4.revisionHistory.length > 0 && !run4.revisionHistory[0].qaChecks.passed) {
+  if (run4.revisionHistory.length > 0 && !run4.revisionHistory[0]?.qaChecks.passed) {
     qaCorrectRejections++; // Successfully rejected attribution/url errors on first run
   }
 

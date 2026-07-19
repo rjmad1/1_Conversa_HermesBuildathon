@@ -3,7 +3,7 @@ import { Clerk } from "@clerk/clerk-js";
 
 const API = "/api/v1";
 
-const pubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_sample";
+const pubKey = (import.meta as any).env?.VITE_CLERK_PUBLISHABLE_KEY || "pk_test_sample";
 const clerk = new Clerk(pubKey);
 
 // BYOK & Auth Interceptor

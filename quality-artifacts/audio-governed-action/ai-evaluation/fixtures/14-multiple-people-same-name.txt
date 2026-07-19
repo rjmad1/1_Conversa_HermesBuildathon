@@ -1,4 +1,0 @@
-Priya: We have two Davids on the call today. David Chen and David Miller.
-David Chen: I will draft the infrastructure RFC by Friday.
-David Miller: Understood. I will handle the review of that RFC next Monday.
-Priya: Thanks both. Let's make sure the two Davids coordinate.

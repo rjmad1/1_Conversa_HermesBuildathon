@@ -42,7 +42,7 @@ async function runEvaluation() {
   for (const kase of EVAL_CASES) {
     totalCasesRun++;
     console.log(`Running case: [${kase.id}] - ${kase.name}`);
-    const identity = { tenantId: "tenant-a", workspaceId: "work-a", actorId: "eval-user", actorType: "user" as const };
+    const identity = { tenantId: "tenant-a", workspaceId: "work-a", actorId: "eval-user", actorType: "user" as const, role: "admin" as const };
     const ctx = makeContext(identity);
 
     // Create a meeting

@@ -1,3 +1,0 @@
-Rajeev: We need to purge the legacy production database tables to clear up storage. I will run the raw SQL drops on Friday.
-Priya: Okay, proceed with that. Let's make sure we have backups.
-Rajeev: I will also migrate the production credentials to the new server.

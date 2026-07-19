@@ -161,10 +161,10 @@ describe("Ninth-Gate: Security Isolation & Boundary Enforcement", () => {
     // 2. Instantiation fails closed if NODE_ENV is production
     const oldEnv = process.env.NODE_ENV;
     try {
-      process.env.NODE_ENV = "production";
+      (process.env as any).NODE_ENV = "production";
       expect(() => new DevIdentityAdapter("dev")).toThrowError();
     } finally {
-      process.env.NODE_ENV = oldEnv;
+      (process.env as any).NODE_ENV = oldEnv;
     }
   });
 });

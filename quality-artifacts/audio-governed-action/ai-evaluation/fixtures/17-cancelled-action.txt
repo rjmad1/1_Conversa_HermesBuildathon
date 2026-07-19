@@ -1,4 +1,0 @@
-Rajeev: I will draft the database migration script by tomorrow.
-Priya: Wait, we decided to migrate to the Cloudflare D1 managed database directly, so we don't need a custom migration script anymore.
-Rajeev: Oh, good point. I will not draft that script then. Let's cancel that task.
-Priya: Perfect. Let's move on.

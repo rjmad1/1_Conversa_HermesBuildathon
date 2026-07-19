@@ -1,0 +1,31 @@
+{
+  "navigation": {
+    "dashboard": "Panel de Control",
+    "meetings": "Reuniones",
+    "workspace": "Espacio de Trabajo IA",
+    "agents": "Agentes",
+    "control": "Control de Agencia",
+    "runs": "Ejecuciones",
+    "workflows": "Flujos de Trabajo",
+    "integrations": "Integraciones",
+    "analytics": "Análisis",
+    "intelligence": "Inteligencia Competitiva",
+    "settings": "Configuración",
+    "waitlist": "Lista de Espera"
+  },
+  "common": {
+    "search": "Buscar...",
+    "cancel": "Cancelar",
+    "save": "Guardar",
+    "loading": "Cargando...",
+    "error": "Ocurrió un error",
+    "success": "Operación completada con éxito"
+  },
+  "meetings": {
+    "newMeeting": "Nueva Reunión",
+    "uploadAudio": "Subir Audio",
+    "pasteTranscript": "Pegar Transcripción",
+    "review": "Revisar Análisis",
+    "audit": "Línea de Tiempo de Auditoría"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "navigation": {
+    "dashboard": "Dashboard",
+    "meetings": "Meetings",
+    "workspace": "AI Workspace",
+    "agents": "Agents",
+    "control": "Agency Control",
+    "runs": "Agent Runs",
+    "workflows": "Workflows",
+    "integrations": "Integrations",
+    "analytics": "Analytics",
+    "intelligence": "Competitive Intelligence",
+    "settings": "Settings",
+    "waitlist": "Waitlist"
+  },
+  "common": {
+    "search": "Search...",
+    "cancel": "Cancel",
+    "save": "Save",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Operation completed successfully"
+  },
+  "meetings": {
+    "newMeeting": "New Meeting",
+    "uploadAudio": "Upload Audio",
+    "pasteTranscript": "Paste Transcript",
+    "review": "Review Analysis",
+    "audit": "Audit Timeline"
+  }
+}

@@ -1,4 +1,0 @@
-Priya: Let's review past items. Rajeev, did you draft the integration RFC from last week's meeting?
-Rajeev: Yes, I completed that and committed it to the repo on Friday.
-Priya: Excellent. Today, I will write the user guides for the release.
-Rajeev: Great, I will help review them.

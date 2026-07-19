@@ -1,4 +1,0 @@
-Rajeev: Maybe we could write a draft RFC sometime. What do you think?
-Priya: Yeah, that would be cool if we have time, but let's see.
-Rajeev: I might look at the billing integration, or we could defer it.
-Priya: Let's think about it next week. No rush.
