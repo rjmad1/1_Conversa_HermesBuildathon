@@ -89,44 +89,62 @@
 
 /* ─── CSS Custom Properties for Light/Dark ─── */
 :root {
-  --background: #f8f9fc;
-  --foreground: #1a1a2e;
+  --background: #f4f6f9;
+  --foreground: #0f172a;
   --muted: #64748b;
   --muted-foreground: #94a3b8;
   --card: #ffffff;
-  --card-foreground: #1a1a2e;
-  --border: #e2e8f0;
+  --card-foreground: #0f172a;
+  --border: rgba(0, 0, 0, 0.08);
   --input: #e2e8f0;
   --ring: #6c5ce7;
   --sidebar-bg: #ffffff;
-  --sidebar-border: #f1f5f9;
+  --sidebar-border: rgba(0, 0, 0, 0.06);
   --sidebar-active: #f0edff;
   --sidebar-width: 260px;
   --sidebar-collapsed-width: 68px;
   --topbar-height: 56px;
-  --clay-bg-gradient: linear-gradient(135deg, #f0f4f9 0%, #d9e2ec 50%, #bcccdc 100%);
+
+  /* Adaptive Glass Intelligence Tokens */
+  --bg-app: #f4f6f9;
+  --bg-surface-1: #ffffff;
+  --bg-surface-2: #eef2f6;
+  --bg-surface-glass: rgba(255, 255, 255, 0.75);
+  --bg-surface-glass-active: rgba(248, 250, 252, 0.90);
+
+  --accent-primary: #6c5ce7;
+  --accent-intelligence: #22d3ee;
+  --accent-success: #2ecc71;
+  --accent-warning: #f5b942;
+  --accent-danger: #ff6b6b;
 }
 
 .dark {
-  --background: #0a0a14;
-  --foreground: #e2e8f0;
+  --background: #0b0f14;
+  --foreground: #f8fafc;
   --muted: #94a3b8;
   --muted-foreground: #64748b;
-  --card: #12121e;
-  --card-foreground: #e2e8f0;
-  --border: #1e293b;
-  --input: #1e293b;
-  --ring: #8b6cef;
-  --sidebar-bg: #0f0f1a;
-  --sidebar-border: #1e293b;
-  --sidebar-active: #1a1530;
-  --clay-bg-gradient: linear-gradient(135deg, #0a0a14 0%, #12121e 50%, #1a1a2e 100%);
+  --card: #141a22;
+  --card-foreground: #f8fafc;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #1b2330;
+  --ring: #6c5ce7;
+  --sidebar-bg: #141a22;
+  --sidebar-border: rgba(255, 255, 255, 0.06);
+  --sidebar-active: #1b2330;
 
-  /* Dark clay shadows */
-  --shadow-clay: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(30, 30, 50, 0.3), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
-  --shadow-clay-purple: 8px 8px 16px rgba(0, 0, 0, 0.4), -8px -8px 16px rgba(76, 55, 138, 0.15), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
-  --shadow-clay-hover: 12px 12px 24px rgba(0, 0, 0, 0.5), -12px -12px 24px rgba(30, 30, 50, 0.3), inset 4px 4px 8px rgba(255, 255, 255, 0.03), inset -4px -4px 8px rgba(0, 0, 0, 0.2);
-  --shadow-clay-pressed: 2px 2px 4px rgba(0, 0, 0, 0.4), inset 4px 4px 8px rgba(0, 0, 0, 0.3);
+  /* Adaptive Glass Intelligence Tokens */
+  --bg-app: #0b0f14;
+  --bg-surface-1: #141a22;
+  --bg-surface-2: #1b2330;
+  --bg-surface-glass: rgba(20, 26, 34, 0.65);
+  --bg-surface-glass-active: rgba(27, 35, 48, 0.85);
+
+  --accent-primary: #6c5ce7;
+  --accent-intelligence: #22d3ee;
+  --accent-success: #2ecc71;
+  --accent-warning: #f5b942;
+  --accent-danger: #ff6b6b;
 }
 
 /* ─── Base Styles ─── */
@@ -138,61 +156,90 @@
 
 body {
   font-family: var(--font-body);
-  background: var(--background);
+  background: var(--bg-app);
   color: var(--foreground);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* ─── Utility Classes: Hybrid Design ─── */
+/* ─── Adaptive Glass Intelligence Utility Classes ─── */
 
-/* Claymorphic Card — for hero/feature areas */
-.clay-card {
-  border-radius: var(--radius-2xl);
-  padding: 1.5rem;
-  background: var(--card);
-  box-shadow: var(--shadow-clay);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transition: box-shadow 0.3s var(--ease-out), transform 0.3s var(--ease-out);
-}
-.clay-card:hover {
-  box-shadow: var(--shadow-clay-hover);
-  transform: translateY(-2px);
+/* Primary Translucent Glass Surface */
+.adaptive-glass {
+  background: var(--bg-surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.25);
+  border-radius: var(--radius-xl);
 }
 
-.clay-card-purple {
-  background: var(--color-brand-100);
-  box-shadow: var(--shadow-clay-purple);
-}
-.dark .clay-card-purple {
-  background: var(--color-brand-900);
+.adaptive-glass-active {
+  background: var(--bg-surface-glass-active);
+  border-color: rgba(108, 92, 231, 0.35);
+  box-shadow: 0 8px 30px -4px rgba(108, 92, 231, 0.2);
 }
 
-/* Flat Card — for data-heavy screens */
-.flat-card {
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
+/* Omnipresent Floating Command Surface */
+.command-surface-glass {
+  background: var(--bg-surface-glass-active);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 48px -8px rgba(0, 0, 0, 0.55), 0 0 20px 2px rgba(34, 211, 238, 0.15);
+  border-radius: var(--radius-full);
+}
+
+/* Ambient Header AI Aura Status Ring */
+.ambient-aura-pulse {
+  box-shadow: 0 0 18px 2px rgba(34, 211, 238, 0.35);
+  animation: aura-pulse-keyframes 2.4s infinite ease-in-out;
+}
+
+@keyframes aura-pulse-keyframes {
+  0% {
+    box-shadow: 0 0 12px 1px rgba(34, 211, 238, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 24px 4px rgba(34, 211, 238, 0.60);
+  }
+  100% {
+    box-shadow: 0 0 12px 1px rgba(34, 211, 238, 0.25);
+  }
+}
+
+/* Inline Contextual Ghost Pills */
+.ghost-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  border-radius: var(--radius-full);
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--accent-intelligence);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  transition: all 0.2s ease;
+}
+.ghost-pill:hover {
+  background: rgba(34, 211, 238, 0.22);
+  border-color: rgba(34, 211, 238, 0.45);
+  cursor: pointer;
+}
+
+/* Spatial Sliding Pane Container */
+.spatial-pane {
   background: var(--card);
   border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.flat-card:hover {
-  border-color: var(--ring);
-  box-shadow: var(--shadow-sm);
-}
-
-/* Glass Card — for overlays and modals */
-.glass-card {
-  border-radius: var(--radius-xl);
-  padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-.dark .glass-card {
-  background: rgba(0, 0, 0, 0.3);
-  border-color: rgba(255, 255, 255, 0.08);
+.spatial-pane:hover {
+  border-color: rgba(108, 92, 231, 0.3);
 }
 
 /* ─── Scrollbar ─── */
@@ -241,3 +288,4 @@ body {
   animation: var(--animate-shimmer);
   border-radius: var(--radius-md);
 }
+

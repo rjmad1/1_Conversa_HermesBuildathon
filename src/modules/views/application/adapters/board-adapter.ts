@@ -1,0 +1,50 @@
+import { BaseLayoutAdapter } from "./base-adapter";
+import { ViewDefinition, LayoutType } from "../../domain/entities/view-definition";
+import { CanonicalViewModel } from "../../domain/entities/canonical-view-model";
+
+export class BoardLayoutAdapter extends BaseLayoutAdapter {
+  layoutType: LayoutType = "board";
+
+  project(
+    items: any[],
+    edges: any[],
+    definition: ViewDefinition,
+    options?: Record<string, any>
+  ): CanonicalViewModel {
+    const viewItems = this.mapToViewItems(items);
+    const columns = this.resolveColumns(definition);
+
+    // Default Kanban grouping field is 'status' if not specified
+    const groupSpecs = options?.groupSpec && options.groupSpec.length > 0
+      ? options.groupSpec
+      : [{ field: "status", target: "property" as const }];
+
+    const groups = this.buildGroups(viewItems, groupSpecs);
+
+    return {
+      viewId: definition.id,
+      viewName: definition.name,
+      layoutType: "board",
+      metadata: {
+        totalCount: options?.totalCount ?? viewItems.length,
+        filteredCount: options?.filteredCount ?? viewItems.length,
+        resolvedAt: Date.now(),
+        executionMode: options?.executionMode || "interactive",
+      },
+      columns,
+      groups,
+      items: viewItems,
+      relationships: edges,
+      aggregates: { totalCards: viewItems.length, columnCount: groups.length },
+      pagination: {
+        startIndex: options?.offset || 0,
+        pageSize: options?.limit || 100,
+        hasMore: (options?.offset || 0) + viewItems.length < (options?.totalCount || 0),
+      },
+      layoutHints: {
+        groupByField: groupSpecs[0].field,
+        enableDragAndDrop: true,
+      },
+    };
+  }
+}
