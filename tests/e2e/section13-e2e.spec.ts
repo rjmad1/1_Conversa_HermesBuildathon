@@ -105,4 +105,85 @@ describe("e2e: Section 13 Opportunities End-to-End API Certification", () => {
     expect(ragResult.totalMatches).toBeGreaterThan(0);
     expect(ragResult.results[0]!.similarityScore).toBeGreaterThanOrEqual(0.65);
   });
+
+  it("executes Autonomous A2A Task Negotiation via HTTP API (/api/v1/agency/a2a/negotiate)", async () => {
+    const app = buildApp();
+    const H = { "content-type": "application/json", "x-tenant-id": "demo", "x-workspace-id": "demo", "x-actor-id": "dev-user" };
+    const res = await app.request("/api/v1/agency/a2a/negotiate", {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({
+        actionId: "act-http-a2a",
+        title: "Deploy multi-cloud Kubernetes ingress",
+        suggestedAssignee: "DevOpsLead",
+        estimatedHours: 6,
+        priority: "high",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json() as any);
+    expect(json.data.accepted).toBe(true);
+    expect(json.data.finalAssignee).toBe("DevOpsLead");
+    expect(json.data.confidenceScore).toBeGreaterThanOrEqual(0.95);
+  });
+
+  it("schedules Zero-Touch Ambient Bot via HTTP API (/api/v1/meetings/ambient/schedule)", async () => {
+    const app = buildApp();
+    const H = { "content-type": "application/json", "x-tenant-id": "demo", "x-workspace-id": "demo", "x-actor-id": "dev-user" };
+    const res = await app.request("/api/v1/meetings/ambient/schedule", {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({
+        eventId: "evt-http-ambient-1",
+        platform: "google_meet",
+        meetingUrl: "https://meet.google.com/abc-defg-hij",
+        title: "Product Architecture Alignment",
+        organizerEmail: "arch@conversa.io",
+      }),
+    });
+
+    expect(res.status).toBe(201);
+    const json = (await res.json() as any);
+    expect(json.data.botId).toContain("google_meet");
+    expect(json.data.status).toBe("SCHEDULED");
+  });
+
+  it("executes Workspace Vector RAG search via HTTP API (/api/v1/search/vector-rag)", async () => {
+    const app = buildApp();
+    const H = { "content-type": "application/json", "x-tenant-id": "demo", "x-workspace-id": "demo", "x-actor-id": "dev-user" };
+    const res = await app.request("/api/v1/search/vector-rag", {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({
+        queryText: "Clerk authentication provider decision",
+        topK: 2,
+        filterType: "DECISION",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json() as any);
+    expect(json.data.results.length).toBeGreaterThan(0);
+    expect(json.data.results[0].title).toContain("Clerk");
+  });
+
+  it("encrypts sensitive credentials via HTTP API (/api/v1/security/credentials/encrypt)", async () => {
+    const app = buildApp();
+    const H = { "content-type": "application/json", "x-tenant-id": "demo", "x-workspace-id": "demo", "x-actor-id": "dev-user" };
+    const res = await app.request("/api/v1/security/credentials/encrypt", {
+      method: "POST",
+      headers: H,
+      body: JSON.stringify({
+        plaintext: "sec_token_998877665544332211",
+      }),
+    });
+
+    expect(res.status).toBe(200);
+    const json = (await res.json() as any);
+    expect(json.data.ciphertext).toBeDefined();
+    expect(json.data.iv).toBeDefined();
+    expect(json.data.tag).toBeDefined();
+  });
 });
+

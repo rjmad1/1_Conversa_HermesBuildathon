@@ -43,6 +43,11 @@ import type { AppEnv as ConfigEnv } from "../shared/config/env";
 import { buildIntelligenceRoutes } from "../modules/competitive-intelligence/presentation/routes";
 import { PlatformBotReceiver } from "../modules/media/application/platform-bot-receiver";
 import { HandOffDispatcher } from "../modules/integrations/hand-off-dispatcher";
+import { AutonomousAgentNegotiator } from "../modules/agency/a2a-negotiation";
+import { AmbientMeetingBotController } from "../modules/meetings/ambient-bot";
+import { WorkspaceVectorRAGEngine } from "../modules/retrieval/vector-rag";
+import { CredentialEncryptionService } from "../shared/security/credential-encryption";
+
 
 type AppVars = { correlationId: string };
 type AppEnv = { Variables: AppVars };
@@ -846,6 +851,70 @@ export function buildApp(): Hono<AppEnv> {
     });
 
     return c.json({ data: { registered: true }, correlationId });
+  });
+
+  // Autonomous Agent-to-Agent (A2A) Negotiation Protocol
+  v1.post("/agency/a2a/negotiate", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    if (!body.actionId || !body.title || !body.suggestedAssignee || typeof body.estimatedHours !== "number") {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Missing required A2A negotiation parameters", 400);
+    }
+    const negotiator = new AutonomousAgentNegotiator();
+    const result = await negotiator.negotiateTaskAllocation({
+      actionId: body.actionId,
+      title: body.title,
+      suggestedAssignee: body.suggestedAssignee,
+      estimatedHours: body.estimatedHours,
+      priority: body.priority || "medium",
+      targetSprint: body.targetSprint,
+    });
+    return c.json({ data: result, correlationId }, 200);
+  });
+
+  // Zero-Touch Ambient Meeting Join Bot Controller
+  const ambientBotController = new AmbientMeetingBotController();
+  v1.post("/meetings/ambient/schedule", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    if (!body.eventId || !body.platform || !body.meetingUrl) {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Missing required ambient meeting event parameters", 400);
+    }
+    const status = ambientBotController.scheduleAmbientBot({
+      eventId: body.eventId,
+      platform: body.platform,
+      meetingUrl: body.meetingUrl,
+      title: body.title || "Ambient Meeting",
+      startTime: body.startTime || new Date().toISOString(),
+      organizerEmail: body.organizerEmail || "user@conversa.io",
+    });
+    return c.json({ data: status, correlationId }, 201);
+  });
+
+  // Workspace Vector RAG Similarity Search
+  v1.post("/search/vector-rag", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    const context = ctx(c);
+    const ragEngine = new WorkspaceVectorRAGEngine();
+    const results = await ragEngine.searchVectorKnowledge({
+      workspaceId: context.identity.workspaceId || "demo",
+      queryText: body.queryText || body.query || "",
+      topK: body.topK || 5,
+      filterType: body.filterType || "ALL",
+    });
+    return c.json({ data: { results, queryText: body.queryText || body.query || "" }, correlationId }, 200);
+  });
+
+  // Enterprise Credential AES-256-GCM Envelope Encryption
+  v1.post("/security/credentials/encrypt", async (c) => {
+    const correlationId = (c.get("correlationId") as string) || "";
+    const body = await c.req.json().catch(() => ({}));
+    if (!body.plaintext || typeof body.plaintext !== "string") {
+      throw new AppError(ErrorCode.VALIDATION_ERROR, "Plaintext credential is required", 400);
+    }
+    const encrypted = CredentialEncryptionService.encrypt(body.plaintext);
+    return c.json({ data: encrypted, correlationId }, 200);
   });
 
   v1.route("/intelligence", buildIntelligenceRoutes(ctx));

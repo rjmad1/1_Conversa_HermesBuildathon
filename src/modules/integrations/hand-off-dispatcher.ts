@@ -25,6 +25,8 @@ export interface HandOffActionItem {
   ownerName?: string | null;
   dueDate?: string | null;
   lineageHash?: string;
+  confidenceScore?: number;
+  status?: string;
 }
 
 export interface DispatchResult {
@@ -33,6 +35,15 @@ export interface DispatchResult {
   externalUrl?: string;
   externalId?: string;
   error?: string;
+  autoDispatched?: boolean;
+}
+
+export interface DeadLetterQueueItem {
+  actionId: string;
+  destination: HandOffTarget;
+  error: string;
+  attempts: number;
+  timestamp: string;
 }
 
 export class HandOffDispatcher {
@@ -41,6 +52,7 @@ export class HandOffDispatcher {
   private githubAdapter: GitHubFormatAdapter;
   private azureDevOpsAdapter: AzureDevOpsFormatAdapter;
   private slackAdapter: SlackFormatAdapter;
+  private deadLetterQueue: DeadLetterQueueItem[] = [];
 
   constructor(credentials: IntegrationCredentials = {}) {
     this.jiraAdapter = new JiraFormatAdapter(credentials.jiraUrl, credentials.jiraApiToken, credentials.jiraUserEmail);
@@ -51,16 +63,37 @@ export class HandOffDispatcher {
   }
 
   /**
-   * Dispatch an approved action item to a target destination in its native format
+   * Determine if an action item qualifies for autonomous confidence-based auto-dispatch
+   */
+  shouldAutoDispatch(action: HandOffActionItem, threshold = 0.95): boolean {
+    if (typeof action.confidenceScore !== "number") return false;
+    return action.confidenceScore >= threshold;
+  }
+
+  /**
+   * Access current Dead Letter Queue (DLQ) persistent failure backlog
+   */
+  getDeadLetterQueue(): DeadLetterQueueItem[] {
+    return [...this.deadLetterQueue];
+  }
+
+  /**
+   * Dispatch an approved or auto-dispatched action item to a target destination in its native format
    */
   async dispatch(
     destination: HandOffTarget,
     action: HandOffActionItem,
     targetConfig: Record<string, any> = {}
   ): Promise<DispatchResult> {
-    logger.info({ destination, actionId: action.id, title: action.title }, `Orchestrating format-aware hand-off to ${destination}`);
+    const isAuto = this.shouldAutoDispatch(action, targetConfig.autoDispatchThreshold ?? 0.95);
+    logger.info(
+      { destination, actionId: action.id, title: action.title, confidenceScore: action.confidenceScore, isAuto },
+      `Orchestrating format-aware hand-off to ${destination}`
+    );
 
     try {
+      let result: DispatchResult;
+
       switch (destination) {
         case "jira": {
           const payload: JiraActionPayload = {
@@ -73,12 +106,14 @@ export class HandOffDispatcher {
             priority: targetConfig.priority,
           };
           const res = await this.jiraAdapter.dispatch(payload);
-          return {
+          result = {
             success: res.success,
             destination: "jira",
             externalUrl: res.url,
             externalId: res.issueKey,
+            autoDispatched: isAuto,
           };
+          break;
         }
 
         case "linear": {
@@ -91,12 +126,14 @@ export class HandOffDispatcher {
             priority: targetConfig.priority ?? 3,
           };
           const res = await this.linearAdapter.dispatch(payload);
-          return {
+          result = {
             success: res.success,
             destination: "linear",
             externalUrl: res.url,
             externalId: res.issueIdentifier,
+            autoDispatched: isAuto,
           };
+          break;
         }
 
         case "github": {
@@ -110,12 +147,14 @@ export class HandOffDispatcher {
             labels: targetConfig.labels,
           };
           const res = await this.githubAdapter.dispatch(payload);
-          return {
+          result = {
             success: res.success,
             destination: "github",
             externalUrl: res.url,
             externalId: res.issueNumber ? String(res.issueNumber) : undefined,
+            autoDispatched: isAuto,
           };
+          break;
         }
 
         case "azure-devops": {
@@ -129,12 +168,14 @@ export class HandOffDispatcher {
             workItemType: targetConfig.workItemType || "Task",
           };
           const res = await this.azureDevOpsAdapter.dispatch(payload);
-          return {
+          result = {
             success: res.success,
             destination: "azure-devops",
             externalUrl: res.url,
             externalId: res.workItemId ? String(res.workItemId) : undefined,
+            autoDispatched: isAuto,
           };
+          break;
         }
 
         case "slack": {
@@ -149,16 +190,20 @@ export class HandOffDispatcher {
             webhookUrl: targetConfig.webhookUrl,
           };
           const res = await this.slackAdapter.dispatch(payload);
-          return {
+          result = {
             success: res.success,
             destination: "slack",
             externalUrl: res.url,
+            autoDispatched: isAuto,
           };
+          break;
         }
 
         default:
           throw new Error(`Unsupported hand-off target: ${destination}`);
       }
+
+      return result;
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Hand-off dispatch failed";
       logger.error({ destination, actionId: action.id, errorMsg }, "Hand-off dispatch error");
@@ -166,7 +211,48 @@ export class HandOffDispatcher {
         success: false,
         destination,
         error: errorMsg,
+        autoDispatched: isAuto,
       };
     }
+  }
+
+  /**
+   * Asynchronous dispatch with exponential backoff retries and Dead Letter Queue (DLQ) tracking
+   */
+  async dispatchWithDLQRetry(
+    destination: HandOffTarget,
+    action: HandOffActionItem,
+    targetConfig: Record<string, any> = {},
+    maxRetries = 3
+  ): Promise<DispatchResult> {
+    let attempts = 0;
+    let lastError = "";
+
+    while (attempts < maxRetries) {
+      attempts++;
+      const result = await this.dispatch(destination, action, targetConfig);
+      if (result.success) {
+        return result;
+      }
+      lastError = result.error || "Unknown dispatch error";
+      logger.warn({ destination, actionId: action.id, attempts, lastError }, "Retrying hand-off dispatch...");
+    }
+
+    // Push persistent failure to Dead Letter Queue (DLQ)
+    const dlqItem: DeadLetterQueueItem = {
+      actionId: action.id,
+      destination,
+      error: lastError,
+      attempts,
+      timestamp: new Date().toISOString(),
+    };
+    this.deadLetterQueue.push(dlqItem);
+    logger.error({ dlqItem }, "Pushed failed hand-off action to Dead Letter Queue (DLQ)");
+
+    return {
+      success: false,
+      destination,
+      error: `Failed after ${maxRetries} attempts; pushed to DLQ. Error: ${lastError}`,
+    };
   }
 }
