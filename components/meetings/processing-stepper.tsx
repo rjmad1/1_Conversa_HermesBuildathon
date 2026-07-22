@@ -35,14 +35,14 @@ export function ProcessingStepper({ meetingId }: ProcessingStepperProps) {
 
         // Step 2: Agency analysis run
         if (mounted) setCurrentStage(2);
-        const res = await fetch(`/api/v1/meetings/${meetingId}/agency-run`, {
+        const res = await fetch(`/api/v1/meetings/${meetingId}/agency/run`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
         });
 
         if (!res.ok) {
-          // Fallback to basic analyze endpoint
-          await fetch(`/api/v1/meetings/${meetingId}/analyze`, {
+          // Fallback to basic analysis endpoint
+          await fetch(`/api/v1/meetings/${meetingId}/analysis`, {
             method: "POST",
           });
         }

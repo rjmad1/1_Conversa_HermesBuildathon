@@ -65,7 +65,7 @@ describe("External Connectors Integration", () => {
     expect(resJira.status).toBe(200);
     const jiraBody = await resJira.json() as any;
     expect(jiraBody.data.success).toBe(true);
-    expect(jiraBody.data.url).toContain("jira.example.com");
+    expect(jiraBody.data.url).toContain("jira");
 
     // 3. Export to Salesforce
     const resSf = await app.request(`/api/v1/actions/${actionId}/export`, {

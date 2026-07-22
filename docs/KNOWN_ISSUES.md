@@ -24,7 +24,7 @@
 
 ### 1.2 Static Production Token Mapping
 * **Description**: In production, the `ProdIdentityAdapter` verifies Bearer tokens from a static environment-variable mapping list, lacking dynamic user login.
-* **Root Cause**: Simplification of auth requirements for the Buildathon prototype release.
+* **Root Cause**: Simplification of auth requirements for the MVP prototype release.
 * **Workaround**: Securely configure and rotate tokens using secrets management.
 * **Permanent Fix**: Integrate external identity providers (Clerk or Auth0) and verify signatures in Hono middleware.
 * **Priority**: Medium

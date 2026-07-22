@@ -33,10 +33,10 @@ Freeze the verified in-memory baseline, configure automated continuous integrati
 
 ---
 
-## Days 15–30: Persistence & Core Integrations (Buildathon Slice)
+## Days 15–30: Persistence & Core Integrations (MVP Slice)
 
 ### Objectives
-Eradicate data volatility, connect Slack collaboration channels, and launch the public Buildathon demonstration.
+Eradicate data volatility, connect Slack collaboration channels, and launch the public MVP demonstration.
 
 ### Deliverables
 - **Convex Persistence:** Convex schemas and repository adapters for meetings, transcripts, and runs.

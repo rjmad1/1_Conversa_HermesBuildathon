@@ -51,4 +51,4 @@
 ## 6. Open Design Decisions
 
 - Single-page flow (current plan) vs stepper. Keep single-page for MVP speed; show step indicator (Input → Transcribe → Analyze → Results).
-- Empty/error states must be first-class, not afterthoughts (buildathon judges check retry paths).
+- Empty/error states must be first-class, not afterthoughts (mvp judges check retry paths).

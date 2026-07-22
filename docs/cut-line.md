@@ -1,4 +1,4 @@
-# Conversa — Buildathon 3-Hour Cut-Line (Brutal Priority)
+# Conversa — MVP 3-Hour Cut-Line (Brutal Priority)
 
 **Author role:** VP Product / Delivery Lead
 **Purpose:** Given ~3 hours, tell agents exactly what to build, what to fake, and what to defer. Everything here is consistent with `docs/INDEX.md` and the resolved decisions in `docs/deployment.md` + `docs/architecture.md` §6.

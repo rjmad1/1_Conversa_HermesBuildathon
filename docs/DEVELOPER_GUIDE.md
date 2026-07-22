@@ -1,6 +1,6 @@
 # Conversa Developer Guide
 
-> **Current-state notice:** Conversa is an active Buildathon prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 This document provides a comprehensive developer guide for builders extending or maintaining the Conversa codebase.
 

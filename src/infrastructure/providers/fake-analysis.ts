@@ -19,7 +19,7 @@ export class FakeAnalysisProvider implements MeetingAnalysisProvider {
 
     const now = new Date().toISOString();
 
-    // Buildathon-readiness transcript heuristics (judge demo dataset)
+    // MVP-readiness transcript heuristics (judge demo dataset)
     if (/pasted-transcript workflow.*primary public demo/i.test(text)) {
       decisions.push({
         id: randomUUID(),

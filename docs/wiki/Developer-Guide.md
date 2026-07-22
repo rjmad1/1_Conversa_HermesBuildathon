@@ -1,6 +1,6 @@
 # Developer Guide
 
-> **Current-state notice:** Conversa is an active Buildathon prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype. It contains incomplete, experimental, mocked, and security-remediation work. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 This document provides a comprehensive developer guide for builders extending or maintaining the Conversa codebase.
 
@@ -95,7 +95,7 @@ Conversa is a monolithic Hono API with a single-page HTML client:
 ---
 
 ## 9. Adding a Route
-1. Open [index.ts](https://github.com/rjmad1/1_Conversa_HermesBuildathon/blob/main/src/app/index.ts).
+1. Open [index.ts](https://github.com/rjmad1/1_Conversa_Hermes/blob/main/src/app/index.ts).
 2. Register the route under the `v1` Hono sub-router (e.g., `v1.post("/my-endpoint", ...)`).
 3. Instantiate and invoke the relevant application Use Case inside the router block, feeding the `ctx(c)` application context.
 

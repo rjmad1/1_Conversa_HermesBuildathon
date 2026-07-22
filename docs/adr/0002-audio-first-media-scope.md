@@ -47,7 +47,7 @@ configuration.
 - **Privacy and compliance.** Audio-only capture has a smaller attack surface and
   simpler consent/retention story than video (no facial recognition, gesture, or
   screen-content analysis).
-- **Buildathon and GTM fit.** The AI-as-Agency and meeting-intelligence tracks are
+- **MVP and GTM fit.** The AI-as-Agency and meeting-intelligence tracks are
   audio/transcript centric; partners (Wispr Flow dictation, ElevenLabs voice output,
   OpenAI transcription) are audio-first.
 - **Extension without rework.** Modality-neutral abstractions let video arrive later
@@ -127,7 +127,7 @@ This keeps the core meeting and media domains stable while allowing video to be
 
 ---
 
-## 7. Resolved Build Decisions (from buildathon planning)
+## 7. Resolved Build Decisions (from mvp planning)
 
 These were open questions resolved before implementation; recorded so agents do not re-litigate them.
 

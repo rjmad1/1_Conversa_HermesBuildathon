@@ -1,4 +1,5 @@
 import { logger } from "../../shared/logging/logger";
+import { HandOffDispatcher, type HandOffTarget } from "../../modules/integrations/hand-off-dispatcher";
 
 export type ConnectorDestination =
   | "jira"
@@ -6,6 +7,7 @@ export type ConnectorDestination =
   | "github"
   | "linear"
   | "slack"
+  | "azure-devops"
   | "hubspot"
   | "google-calendar"
   | "outlook"
@@ -19,10 +21,13 @@ export type ConnectorDestination =
 
 export interface ConnectorConfig {
   jiraUrl?: string;
+  jiraApiToken?: string;
+  jiraUserEmail?: string;
   salesforceUrl?: string;
   githubToken?: string;
   linearApiKey?: string;
   slackWebhookUrl?: string;
+  azureDevOpsPat?: string;
   hubspotApiKey?: string;
   googleCalendarClientId?: string;
   outlookClientId?: string;
@@ -36,25 +41,49 @@ export interface ConnectorConfig {
 }
 
 export class ExternalConnectorDispatcher {
-  constructor(private readonly config: ConnectorConfig) {}
+  private handOffDispatcher: HandOffDispatcher;
+
+  constructor(private readonly config: ConnectorConfig) {
+    this.handOffDispatcher = new HandOffDispatcher({
+      jiraUrl: config.jiraUrl,
+      jiraApiToken: config.jiraApiToken,
+      jiraUserEmail: config.jiraUserEmail,
+      linearApiKey: config.linearApiKey,
+      githubToken: config.githubToken,
+      azureDevOpsPat: config.azureDevOpsPat,
+      slackWebhookUrl: config.slackWebhookUrl,
+    });
+  }
 
   async exportAction(
     destination: ConnectorDestination,
-    payload: { title: string; description: string; ownerName?: string | null; dueDate?: string | null }
-  ): Promise<{ success: boolean; url?: string }> {
-    logger.info({ destination, payload }, `Dispatching action item to ${destination}`);
+    payload: { title: string; description: string; ownerName?: string | null; dueDate?: string | null; id?: string; meetingTitle?: string }
+  ): Promise<{ success: boolean; url?: string; externalId?: string }> {
+    logger.info({ destination, payload }, `Dispatching action item via ExternalConnectorDispatcher to ${destination}`);
 
+    // Delegate native hand-off targets to modular HandOffDispatcher
+    if (destination === "jira" || destination === "linear" || destination === "github" || destination === "slack" || destination === "azure-devops") {
+      const actionItem = {
+        id: payload.id || `action-${Date.now()}`,
+        title: payload.title,
+        description: payload.description,
+        ownerName: payload.ownerName,
+        dueDate: payload.dueDate,
+        meetingTitle: payload.meetingTitle,
+      };
+
+      const result = await this.handOffDispatcher.dispatch(destination as HandOffTarget, actionItem);
+      return {
+        success: result.success,
+        url: result.externalUrl || "",
+        externalId: result.externalId,
+      };
+    }
+
+    // Secondary fallback connectors
     switch (destination) {
-      case "jira":
-        return this.sendToJira(payload);
       case "salesforce":
         return this.sendToSalesforce(payload);
-      case "github":
-        return this.sendToGitHub(payload);
-      case "linear":
-        return this.sendToLinear(payload);
-      case "slack":
-        return this.sendToSlack(payload);
       case "hubspot":
         return this.sendToHubSpot(payload);
       case "google-calendar":
@@ -80,31 +109,6 @@ export class ExternalConnectorDispatcher {
     }
   }
 
-  private async sendToJira(payload: any): Promise<{ success: boolean; url: string }> {
-    if (!this.config.jiraUrl) {
-      logger.info({}, "Jira URL not configured. Returning mock Jira ticket URL.");
-      return { success: true, url: "https://jira.example.com/browse/CONV-123" };
-    }
-    try {
-      const res = await fetch(`${this.config.jiraUrl}/rest/api/2/issue`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fields: {
-            project: { key: "CONV" },
-            summary: payload.title,
-            description: payload.description,
-            issuetype: { name: "Task" },
-          },
-        }),
-      });
-      return { success: res.ok, url: `${this.config.jiraUrl}/browse/CONV-123` };
-    } catch (e) {
-      logger.error({ e }, "Jira export failed");
-      return { success: false, url: "" };
-    }
-  }
-
   private async sendToSalesforce(payload: any): Promise<{ success: boolean; url: string }> {
     if (!this.config.salesforceUrl) {
       logger.info({}, "Salesforce URL not configured. Returning mock Salesforce task URL.");
@@ -124,72 +128,6 @@ export class ExternalConnectorDispatcher {
       return { success: res.ok, url: `${this.config.salesforceUrl}/00T00000000xxxx` };
     } catch (e) {
       logger.error({ e }, "Salesforce export failed");
-      return { success: false, url: "" };
-    }
-  }
-
-  private async sendToGitHub(payload: any): Promise<{ success: boolean; url: string }> {
-    if (!this.config.githubToken) {
-      logger.info({}, "GitHub token not configured. Returning mock GitHub issue URL.");
-      return { success: true, url: "https://github.com/example/repo/issues/42" };
-    }
-    try {
-      const res = await fetch("https://api.github.com/repos/example/repo/issues", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `token ${this.config.githubToken}`,
-          "User-Agent": "Conversa-Connector",
-        },
-        body: JSON.stringify({
-          title: payload.title,
-          body: payload.description,
-        }),
-      });
-      return { success: res.ok, url: "https://github.com/example/repo/issues/42" };
-    } catch (e) {
-      logger.error({ e }, "GitHub export failed");
-      return { success: false, url: "" };
-    }
-  }
-
-  private async sendToLinear(payload: any): Promise<{ success: boolean; url: string }> {
-    if (!this.config.linearApiKey) {
-      logger.info({}, "Linear API key not configured. Returning mock Linear issue URL.");
-      return { success: true, url: "https://linear.app/conversa/issue/CONV-456" };
-    }
-    try {
-      const res = await fetch("https://api.linear.app/v1/graphql", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": this.config.linearApiKey,
-        },
-        body: JSON.stringify({
-          query: `mutation { issueCreate(input: { title: "${payload.title}", description: "${payload.description}" }) { success } }`,
-        }),
-      });
-      return { success: res.ok, url: "https://linear.app/conversa/issue/CONV-456" };
-    } catch (e) {
-      logger.error({ e }, "Linear export failed");
-      return { success: false, url: "" };
-    }
-  }
-
-  private async sendToSlack(payload: any): Promise<{ success: boolean; url: string }> {
-    if (!this.config.slackWebhookUrl) {
-      logger.info({}, "Slack webhook URL not configured. Returning mock Slack message URL.");
-      return { success: true, url: "https://slack.com/archives/C12345/p12345" };
-    }
-    try {
-      const res = await fetch(this.config.slackWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `*${payload.title}*\n${payload.description}` }),
-      });
-      return { success: res.ok, url: "https://slack.com/archives/C12345/p12345" };
-    } catch (e) {
-      logger.error({ e }, "Slack export failed");
       return { success: false, url: "" };
     }
   }
@@ -262,7 +200,7 @@ export class ExternalConnectorDispatcher {
           subject: payload.title,
           body: { contentType: "HTML", content: payload.description },
           start: { dateTime: payload.dueDate || new Date().toISOString(), timeZone: "UTC" },
-          end: { dateTime: payload.dueDate || new Date().toISOString(), timeZone: "UTC" },
+          end: { dateTime: payload.dueDate || new Date().toISOString(), timeZone: "UTC font" },
         }),
       });
       return { success: res.ok, url: "https://outlook.office.com/calendar/item/123" };

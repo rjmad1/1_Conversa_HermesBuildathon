@@ -1,6 +1,6 @@
 # Roadmap Gap Analysis
 
-This document identifies contradictions between documentation claims (e.g. Wiki Roadmap, Buildathon submissions) and the actual state of the Conversa repository. It provides remediation recommendations and priorities.
+This document identifies contradictions between documentation claims (e.g. Wiki Roadmap, MVP submissions) and the actual state of the Conversa repository. It provides remediation recommendations and priorities.
 
 ## Identified Gaps & Deficiencies
 

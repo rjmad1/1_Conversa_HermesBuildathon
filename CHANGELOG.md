@@ -15,7 +15,14 @@
 
 All notable changes to this project will be documented in this file.
 
-The release classification is: **Experimental Buildathon snapshot — not production-ready.**
+The release classification is: **Experimental MVP snapshot — not production-ready.**
+
+## [0.4.0] - 2026-07-22
+### Added
+- **Universal Product Strategy & Competitive Intelligence Suite**: Published `docs/COMPETITOR_PARITY.md` establishing Conversa's strategic positioning as a **Headless Meeting Capture & Native Task Execution Engine** contrasting Tana's walled-garden outliner.
+- **Universal Strategy Artifacts**: Created `docs/PRODUCT_STRATEGY.md`, `docs/CAPABILITY_MATRIX.md`, `docs/STRATEGIC_GAP_ANALYSIS.md`, `docs/PERSONA_JTBD.md`, `docs/TECHNICAL_DEBT_AND_ARCHITECTURE.md`, and `docs/EXECUTIVE_SUMMARY.md`.
+- **Living Roadmap Evolution**: Updated `docs/ROADMAP.md` with RICE scoring, Kano classifications, MoSCoW priorities, and anti-roadmap non-goals.
+- **Documentation Synchronization**: Updated `docs/INDEX.md` as the single source of truth for strategic and technical documentation.
 
 ## [0.3.1] - 2026-07-13
 ### Added

@@ -1,40 +1,40 @@
 # Conversa — Documentation Index (Single Source of Truth)
 
-**Author role:** Technical Writer / Enterprise Platform Architect
-**Last Generated:** 2026-07-20T06:54:00+05:30
-**Purpose:** The canonical map of every Conversa document. If an agent or engineer is looking for system context, start here.
+**Author Role:** Enterprise Platform Architect & Chief Product Officer  
+**Last Updated:** 2026-07-22  
+**Purpose:** The canonical index of all Conversa documentation. If an engineer, product manager, or executive is looking for system architecture, strategy, competitive intelligence, or roadmap context, start here.
 
 ---
 
-## 🚀 Core Platform Architectural Documents
+## 🎯 Executive & Product Strategy Suite
+
+1. **[INNOVATION_ASSESSMENT.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/INNOVATION_ASSESSMENT.md)** — **Master 20-Phase Reverse Engineering & Strategic Innovation Assessment**, covering Jobs-to-be-Done (JTBD), Product Decomposition, Assumption Audit, Multi-Stakeholder Analysis, Cross-Industry Benchmarking, Prioritized Opportunity Backlog (RICE), and 9-Stage Product Evolution Map.
+2. **[EXECUTIVE_SUMMARY.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/EXECUTIVE_SUMMARY.md)** — Executive product maturity assessment, radar scorecard, strengths/weaknesses, and CPO recommendations.
+3. **[COMPETITOR_PARITY.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/COMPETITOR_PARITY.md)** — **Core Competitor Parity Report** comparing Conversa against Tana (`tana.inc`) and meeting tools (Otter, Fathom, Fireflies), detailing our **Headless Meeting Capture & Native Task Hand-off Strategy**.
+4. **[PRODUCT_STRATEGY.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/PRODUCT_STRATEGY.md)** — Universal product vision, mission, strategic differentiators, target market segments, and operating principles.
+5. **[ROADMAP.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/ROADMAP.md)** — Living product roadmap (Now, Next, Later, Future Vision) with RICE scoring, Kano categories, MoSCoW priorities, and anti-roadmap non-goals.
+6. **[PERSONA_JTBD.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/PERSONA_JTBD.md)** — User personas (Alex, Sarah, Marcus), pain points, and Jobs-To-Be-Done (JTBD) mapping to native hand-off applications.
+7. **[CAPABILITY_MATRIX.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/CAPABILITY_MATRIX.md)** — Detailed capability inventory cataloging implemented, scaffolded, and planned features based on codebase audit.
+8. **[STRATEGIC_GAP_ANALYSIS.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/STRATEGIC_GAP_ANALYSIS.md)** — Quadrant gap analysis, missing/weak feature audit, product simplification candidate list, and risk mitigations.
+9. **[TECHNICAL_DEBT_AND_ARCHITECTURE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/TECHNICAL_DEBT_AND_ARCHITECTURE.md)** — Codebase technical debt register, C4 system architecture, and Azure Cloud Assessment aligned with Microsoft Well-Architected Framework (WAF) principles.
+
+---
+
+## 🚀 Core Technical & Operational Architecture
 
 1. **[README.md](file:///c:/Users/rajaj/Projects/1_Conversa/README.md)** — Canonical human entry point, system summary, setup instructions, and phase architecture.
-2. **[IMPLEMENTATION_STATUS.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/IMPLEMENTATION_STATUS.md)** — Comprehensive matrix covering Phase 1 through Phase 4 capability verification.
-3. **[ARCHITECTURE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/ARCHITECTURE.md)** — System containers, C4 context diagrams, end-to-end data flows, and 3-hash lineage verification model.
-4. **[MODULES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/MODULES.md)** — Complete catalog of code modules across `src/modules/`, `convex/`, `components/`, and `app/`.
-5. **[CURRENT_STATE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/CURRENT_STATE.md)** — Technical state assessment, scorecard, test status (174 passing tests), and zero compiler error status.
+2. **[IMPLEMENTATION_STATUS.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/IMPLEMENTATION_STATUS.md)** — Detailed phase capability verification matrix.
+3. **[ARCHITECTURE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/ARCHITECTURE.md)** — C4 context diagrams, container boundaries, and 3-hash lineage verification model.
+4. **[MODULES.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/MODULES.md)** — Code module catalog across `src/modules/`, `convex/`, `components/`, and `app/`.
+5. **[CURRENT_STATE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/CURRENT_STATE.md)** — Technical state assessment, scorecard, and passing test verification status.
 6. **[API.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/API.md)** — REST API contracts, endpoint definitions, and payload examples.
-
----
-
-## 📚 Architectural & Operational Catalogue
-
-| Document | Owner Role | Primary Subject |
-| --- | --- | --- |
-| `docs/adr/0002-audio-first-media-scope.md` | Architecture Board | Audio-first scope rationale and future video roadmap. |
-| `docs/functional-audio-first.md` | Principal PM | Audio ingestion channels, formats, and validation rules. |
-| `docs/PROJECT.md` | Product Lead | Business vision, stakeholder outcomes, and success metrics. |
-| `docs/DECISIONS.md` | Principal Architect | Architecture Decision Records (ADRs) table. |
-| `docs/SERVICES.md` | Solution Architect | High-level system services catalog. |
-| `docs/EVENTS.md` | Integration Engineer | Event bus schemas, audit events, and handlers. |
-| `docs/DATABASE.md` | Data Architect | Entity relationships, models, and Convex schemas. |
-| `docs/SECURITY_AND_PRIVACY.md` | Security Engineer | Multi-tenancy isolation, RBAC token scopes, PII redaction, and data residency policies. |
+7. **[DATABASE.md](file:///c:/Users/rajaj/Projects/1_Conversa/docs/DATABASE.md)** — Convex database schemas (`convex/schema.ts`), data relationships, and indexing rules.
 
 ---
 
 ## ⚖️ Hard Platform Rules
 
 - All data operations strictly enforce tenant & workspace isolation (`tenantId`, `workspaceId`).
-- PII and raw credentials are removed or redacted prior to storage or publishing.
-- Dynamic capability routing enforces privacy levels (`Public`, `Internal`, `Confidential`, `Restricted`, `Regulated`).
+- PII and raw credentials are removed or redacted prior to storage or outbound processing.
+- Conversa acts as a **Meeting Ingestion & Native Application Task Hand-off Engine**—we do **NOT** build proprietary outliners, custom supertag builders, or internal task management UIs.
 - Publications generated by the publishing layer include cryptographic 3-hash lineage manifests (`semanticHash`, `contentHash`, `provenanceHash`).

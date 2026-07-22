@@ -6,7 +6,7 @@ This document serves as the single source of truth for the development, verifica
 
 ## 1. Executive Summary
 
-Conversa is an audio-first meeting intelligence platform that translates spoken conversations into structured, governed, and traceable work outcomes. This roadmap provides an evidence-based pathway transitioning Conversa from its current verified, in-memory Buildathon baseline to a production-ready, multi-tenant enterprise platform.
+Conversa is an audio-first meeting intelligence platform that translates spoken conversations into structured, governed, and traceable work outcomes. This roadmap provides an evidence-based pathway transitioning Conversa from its current verified, in-memory MVP baseline to a production-ready, multi-tenant enterprise platform.
 
 ---
 
@@ -24,7 +24,7 @@ A design partner can repeatedly execute the workflow with cryptographically secu
 
 ## 3. Verified Current State
 
-As of July 12, 2026, the Conversa core agent and API framework is verified at **91.6% Buildathon MVP readiness**:
+As of July 12, 2026, the Conversa core agent and API framework is verified at **91.6% MVP readiness**:
 - **Total Automated Tests:** 76/76 passing (Unit: 30/30, Integration: 33/33, E2E: 13/13).
 - **Adversarial Scenarios:** 7/7 passing in integration testing.
 - **Automated Quality Evaluation:** `npm run eval:agency` passes with a 93.3% Action Recall score.
@@ -39,7 +39,7 @@ As of July 12, 2026, the Conversa core agent and API framework is verified at **
 
 ```mermaid
 graph TD
-    H0[Horizon 0: Baseline Lock] --> H1[Horizon 1: Buildathon Slice]
+    H0[Horizon 0: Baseline Lock] --> H1[Horizon 1: MVP Slice]
     H1 --> H2[Horizon 2: Pilot Readiness]
     H2 --> H3[Horizon 3: Enterprise Foundations]
     H3 --> H4[Horizon 4: Scaled Expansion]
@@ -54,7 +54,7 @@ graph TD
 - **Entry Criteria:** Passing local test suites (76 tests) and passing evaluation script (`run-eval.ts`).
 - **Exit Criteria:** Automated GitHub Actions pipeline is active; all outdated documentation is updated/marked.
 
-### Horizon 1 — Buildathon-Complete Vertical Slice
+### Horizon 1 — MVP-Complete Vertical Slice
 - **Objective:** Deliver one repeatable, demonstrable, externally hosted end-to-end workflow on Cloudflare Pages and Workers.
 - **Key Initiatives:**
   - **Convex Persistence:** Migrate transient memory repositories to reactive Convex database tables.

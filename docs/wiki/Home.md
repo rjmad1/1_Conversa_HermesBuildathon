@@ -1,6 +1,6 @@
 # Welcome to the Conversa Wiki
 
-> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 Conversa is an **audio-first** meeting intelligence platform designed to extract action items, decisions, and summaries from meeting transcripts, putting a human-in-the-loop workflow on proposed actions.
 
@@ -8,10 +8,10 @@ Conversa is an **audio-first** meeting intelligence platform designed to extract
 
 ## Quick Reference
 
-* **GitHub Repository**: `https://github.com/rjmad1/1_Conversa_HermesBuildathon`
-* **Vercel Live Application**: `https://1-conversa-hermes-buildathon.vercel.app/`
-* **Current Source Commit**: See the latest `main` commit in the repository history: <https://github.com/rjmad1/1_Conversa_HermesBuildathon/commits/main>
-* **Buildathon Status**: Experimental snapshot. Local verification checks pass.
+* **GitHub Repository**: `https://github.com/rjmad1/1_Conversa_Hermes`
+* **Vercel Live Application**: `https://1-conversa-hermes.vercel.app/`
+* **Current Source Commit**: See the latest `main` commit in the repository history: <https://github.com/rjmad1/1_Conversa_Hermes/commits/main>
+* **MVP Status**: Experimental snapshot. Local verification checks pass.
 * **Last Updated**: July 12, 2026
 
 ---

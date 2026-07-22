@@ -15,9 +15,9 @@
 
 ## Product Security Status
 
-> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
-Although Conversa is an experimental Buildathon prototype, we take security seriously and have conducted runtime security audits and tenant isolation hardening. All security regression tests pass.
+Although Conversa is an experimental MVP prototype, we take security seriously and have conducted runtime security audits and tenant isolation hardening. All security regression tests pass.
 
 ## Reporting a Vulnerability
 

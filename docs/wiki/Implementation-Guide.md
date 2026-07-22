@@ -1,11 +1,11 @@
 # Implementation Guide
 
-> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 This guide provides technical walk-through details of the Conversa implementation.
 
 ## Technical Frameworks
-* **Backend REST API**: Hono router. Routes are defined centrally in [src/app/index.ts](https://github.com/rjmad1/1_Conversa_HermesBuildathon/blob/main/src/app/index.ts).
+* **Backend REST API**: Hono router. Routes are defined centrally in [src/app/index.ts](https://github.com/rjmad1/1_Conversa_Hermes/blob/main/src/app/index.ts).
 * **Frontend SPA**: Serves the SPA frontend under `src/ui/`.
 * **Testing**: Vitest runner under `tests/`.
 

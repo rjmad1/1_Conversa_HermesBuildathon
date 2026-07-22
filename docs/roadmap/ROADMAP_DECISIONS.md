@@ -10,14 +10,14 @@ This document details the architectural and product decisions (ADRs) governing t
 Approved
 
 ### Context
-Conversa must be deployed to a public URL for the Buildathon demonstration. The initial codebase shift transitioned from Next.js serverless functions to Hono + Vite SPA. We must choose a canonical hosting target between Vercel and Cloudflare Pages/Workers.
+Conversa must be deployed to a public URL for the MVP demonstration. The initial codebase shift transitioned from Next.js serverless functions to Hono + Vite SPA. We must choose a canonical hosting target between Vercel and Cloudflare Pages/Workers.
 
 ### Decision
 Deploy the Hono API backend on **Cloudflare Workers** and host the compiled Vite SPA static frontend on **Cloudflare Pages**. 
 
 ### Rationale
 - Cloudflare Workers provide sub-millisecond cold starts and edge-native performance, matching our audio-first real-time streaming vision.
-- Aligns directly with the Buildathon requirement of being hosted on Cloudflare Pages.
+- Aligns directly with the MVP requirement of being hosted on Cloudflare Pages.
 
 ### Alternatives
 - **Vercel Serverless Functions:** Easier setup out-of-the-box with Hono, but incurs higher cold start latency.
@@ -83,17 +83,17 @@ Approved
 The application uses caller-supplied headers in dev mode. We need to plan when to enforce cryptographic authorization.
 
 ### Decision
-Defer cryptographic authentication (JWT verification via Clerk/Auth0) to **Horizon 2 (Pilot Readiness)**. Keep Horizon 1 (Buildathon) restricted to Developer Scoped headers.
+Defer cryptographic authentication (JWT verification via Clerk/Auth0) to **Horizon 2 (Pilot Readiness)**. Keep Horizon 1 (MVP) restricted to Developer Scoped headers.
 
 ### Rationale
 - Focuses Horizon 1 purely on the functional vertical slice (the audio-to-action pipeline).
 - Prevents authentication setup from blocking the core demonstration.
 
 ### Alternatives
-- **Build Auth in Horizon 1:** High risk of configuration overhead stalling the Buildathon delivery.
+- **Build Auth in Horizon 1:** High risk of configuration overhead stalling the MVP delivery.
 
 ### Consequences
-- The Buildathon public deployment will require clear disclaimer notices stating that isolation is currently header-driven and not cryptographically locked.
+- The MVP public deployment will require clear disclaimer notices stating that isolation is currently header-driven and not cryptographically locked.
 
 ---
 
@@ -109,7 +109,7 @@ Specialist agents might extract action items or claims that are ambiguous or req
 Use **Linkup Search API** as the canonical grounding client to query external web data and link sources to findings.
 
 ### Rationale
-- Satisfies the Buildathon expectation for researcher source links.
+- Satisfies the MVP expectation for researcher source links.
 - Ensures generated outputs are verifiable and prevents LLM hallucination.
 
 ### Alternatives

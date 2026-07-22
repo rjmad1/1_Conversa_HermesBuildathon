@@ -23,7 +23,7 @@ Conversa is built to support serverless and edge hosting targets:
 * **Static Client Serving**: Cloudflare Pages.
 * **Metadata Store**: Cloudflare D1 (relational SQLite database).
 
-### 1.2 Vercel / Node Server (Demo / Buildathon Runtime)
+### 1.2 Vercel / Node Server (Demo / MVP Runtime)
 * **Application Server**: Node Server hosted on Vercel Serverless (using `@hono/node-server`).
 * **Metadata Store**: Ephemeral in-memory repositories.
 * **Ingestion Limits**: In-memory body size parsing restrictions (`AUDIO_MAX_BYTES`).

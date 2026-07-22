@@ -1,6 +1,6 @@
 # Conversa User Guide
 
-> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 Welcome to the Conversa User Guide. This guide covers how to operate the Conversa web application.
 
@@ -17,7 +17,7 @@ Conversa is designed to help teams capture meeting audio and transcripts, extrac
 ## 3. Opening the Vercel Application
 To access the live demonstration of the active build snapshot, navigate to:
 ```text
-https://1-conversa-hermes-buildathon.vercel.app/
+https://1-conversa-hermes.vercel.app/
 ```
 
 ## 4. Browser Assumptions

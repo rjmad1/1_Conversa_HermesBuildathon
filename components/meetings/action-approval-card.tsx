@@ -29,7 +29,7 @@ export function ActionApprovalCard({ meetingId, action, onStatusChange }: Action
   const handleApprove = async () => {
     setIsUpdating(true);
     try {
-      const res = await fetch(`/api/v1/meetings/${meetingId}/actions/${action.id}/approve`, {
+      const res = await fetch(`/api/v1/actions/${action.id}/approve`, {
         method: "POST",
       });
 
@@ -48,7 +48,7 @@ export function ActionApprovalCard({ meetingId, action, onStatusChange }: Action
   const handleReject = async () => {
     setIsUpdating(true);
     try {
-      const res = await fetch(`/api/v1/meetings/${meetingId}/actions/${action.id}/reject`, {
+      const res = await fetch(`/api/v1/actions/${action.id}/reject`, {
         method: "POST",
       });
 

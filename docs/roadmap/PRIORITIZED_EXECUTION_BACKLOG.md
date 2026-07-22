@@ -6,7 +6,7 @@ This document outlines the prioritized backlog of engineering and product initia
 
 To ensure transparency, each initiative is evaluated using the following weighted scoring model:
 
-$$\text{Priority Score} = \frac{(\text{User Value} + \text{Business Value} + \text{Buildathon Necessity} + \text{Risk Reduction}) \times \text{Confidence}}{\text{Implementation Effort} + \text{Operational Burden}}$$
+$$\text{Priority Score} = \frac{(\text{User Value} + \text{Business Value} + \text{MVP Necessity} + \text{Risk Reduction}) \times \text{Confidence}}{\text{Implementation Effort} + \text{Operational Burden}}$$
 
 ### Evaluation Key
 - **Value/Necessity/Risk:** Scale of 1 to 10 (10 = highest value, impact, or contractual lock).
@@ -17,7 +17,7 @@ $$\text{Priority Score} = \frac{(\text{User Value} + \text{Business Value} + \te
 
 ## Ranked Initiative Matrix
 
-| ID | Initiative | User Value | Business Value | Buildathon Necessity | Risk Reduction | Confidence | Effort | Burden | Priority Score | Target Horizon |
+| ID | Initiative | User Value | Business Value | MVP Necessity | Risk Reduction | Confidence | Effort | Burden | Priority Score | Target Horizon |
 | :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **BI-001** | Slack Webhook Integration | 8 | 7 | 10 | 4 | 0.95 | 1 | 1 | **13.78** | Horizon 1 |
 | **BI-002** | Waitlist Page & Email Capture | 5 | 9 | 10 | 3 | 1.00 | 1 | 1 | **13.50** | Horizon 1 |

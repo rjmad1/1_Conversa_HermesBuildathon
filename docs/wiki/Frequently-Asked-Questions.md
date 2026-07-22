@@ -1,6 +1,6 @@
 # Frequently Asked Questions
 
-> **Current-state notice:** Conversa is an active Buildathon prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+> **Current-state notice:** Conversa is an active MVP prototype containing experimental, incomplete, mocked, and recently remediated functionality. It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 ## General Questions
 
@@ -11,7 +11,7 @@ Conversa is an **audio-first** meeting intelligence platform. It ingests meeting
 It prevents meeting follow-up tasks from being lost by automatically capturing action items, assigning owners, establishing due dates, routing them to target systems of record, and requiring manual human approval before execution.
 
 ### Is it production-ready?
-No. The release classification is: **Experimental Buildathon snapshot — not production-ready.** It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
+No. The release classification is: **Experimental MVP snapshot — not production-ready.** It is not approved for production use, confidential meetings, regulated data, or uncontrolled multi-tenant deployment.
 
 ### Can it process confidential meetings?
 No. The codebase runs in an experimental environment, lacks secure authentication, and sends transcript data to public AI API endpoints (OpenAI BYOK). Do not use real or confidential meeting data.
@@ -58,5 +58,5 @@ Do not open GitHub issues. Submit report details privately to the project admini
 ### Where is the live demo?
 The live demo is hosted at:
 ```text
-https://1-conversa-hermes-buildathon.vercel.app/
+https://1-conversa-hermes.vercel.app/
 ```

@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  conversa-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conversa-app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - ALLOW_DEV_IDENTITY=true
+      - AUTH_MODE=dev
+      - LOG_LEVEL=info
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/api/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
