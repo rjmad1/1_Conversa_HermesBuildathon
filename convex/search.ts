@@ -38,6 +38,57 @@ export const searchKnowledgeObjects = query({
 });
 
 /**
+ * Perform paginated search across knowledge_objects in a workspace using cursor-based pagination.
+ */
+export const searchKnowledgeObjectsPaginated = query({
+  args: {
+    tenantId: v.string(),
+    workspaceId: v.string(),
+    keywords: v.optional(v.array(v.string())),
+    objectTypes: v.optional(v.array(v.string())),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.string()), // Stringified numeric offset or token
+  },
+  handler: async (ctx, args) => {
+    const limit = args.limit ?? 20;
+    const offset = args.cursor ? parseInt(args.cursor, 10) : 0;
+
+    let items = await ctx.db
+      .query("knowledge_objects")
+      .withIndex("by_tenant_workspace", (q) =>
+        q.eq("tenantId", args.tenantId).eq("workspaceId", args.workspaceId)
+      )
+      .collect();
+
+    if (args.objectTypes && args.objectTypes.length > 0) {
+      items = items.filter((item) => args.objectTypes!.includes(item.type));
+    }
+
+    if (args.keywords && args.keywords.length > 0) {
+      const kw = args.keywords.map((k) => k.toLowerCase());
+      items = items.filter((item) => {
+        const text = `${item.title} ${item.summary || ""} ${item.body || ""} ${item.labels.join(" ")}`.toLowerCase();
+        return kw.some((k) => text.includes(k));
+      });
+    }
+
+    const totalCount = items.length;
+    const pageItems = items.slice(offset, offset + limit);
+    const hasMore = offset + limit < totalCount;
+    const nextCursor = hasMore ? String(offset + limit) : null;
+
+    return {
+      items: pageItems,
+      totalCount,
+      limit,
+      cursor: args.cursor ?? "0",
+      nextCursor,
+      hasMore,
+    };
+  },
+});
+
+/**
  * Get saved searches for a workspace and optionally a user.
  */
 export const getSavedSearches = query({

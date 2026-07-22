@@ -180,3 +180,76 @@ export class ClerkIdentityAdapter implements IdentityAdapter {
     }
   }
 }
+
+/**
+ * Enterprise SAML 2.0 / OIDC Identity Adapter.
+ * Decodes SAML 2.0 assertions and Enterprise OIDC ID Tokens from Entra ID, Okta, and Ping Identity.
+ */
+export class SamlOidcIdentityAdapter implements IdentityAdapter {
+  constructor(private readonly cfg: AppEnv) {}
+
+  isProduction(): boolean {
+    return true;
+  }
+
+  resolve(headers: Record<string, string | undefined>): Identity {
+    const samlAssertion = headers["x-saml-assertion"];
+    const authHeader = headers["authorization"];
+
+    if (samlAssertion) {
+      try {
+        const decodedStr = Buffer.from(samlAssertion, "base64").toString("utf-8");
+        const matchSubject = decodedStr.match(/<NameID[^>]*>(.*?)<\/NameID>/i);
+        const matchTenant = decodedStr.match(/Attribute Name="tenantId"[^>]*>.*?<AttributeValue>(.*?)<\/AttributeValue>/i);
+        const matchWorkspace = decodedStr.match(/Attribute Name="workspaceId"[^>]*>.*?<AttributeValue>(.*?)<\/AttributeValue>/i);
+        const matchRole = decodedStr.match(/Attribute Name="role"[^>]*>.*?<AttributeValue>(.*?)<\/AttributeValue>/i);
+
+        const actorId = (matchSubject && matchSubject[1]) || "saml-enterprise-user";
+        const tenantId = (matchTenant && matchTenant[1]) || "enterprise-tenant";
+        const workspaceId = (matchWorkspace && matchWorkspace[1]) || "enterprise-workspace";
+        const role = (matchRole && matchRole[1]) ? (matchRole[1] as any) : "approver";
+
+        return {
+          tenantId,
+          workspaceId,
+          actorId,
+          actorType: "user",
+          role,
+          openaiApiKey: headers["x-openai-api-key"],
+        };
+      } catch (err) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid SAML 2.0 assertion payload", 401);
+      }
+    }
+
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      const token = authHeader.substring(7).trim();
+      try {
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payloadStr = Buffer.from(parts[1] || "", "base64url").toString("utf-8");
+          const claims = JSON.parse(payloadStr);
+
+          const actorId = claims.sub || claims.email || "oidc-user";
+          const tenantId = claims.tid || claims.tenantId || claims.org_id || "enterprise-tenant";
+          const workspaceId = claims.workspaceId || "enterprise-workspace";
+          const role = claims.roles?.includes("Admin") ? "admin" : "approver";
+
+          return {
+            tenantId,
+            workspaceId,
+            actorId,
+            actorType: "user",
+            role,
+            openaiApiKey: headers["x-openai-api-key"],
+          };
+        }
+      } catch (err) {
+        throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid OIDC Enterprise token", 401);
+      }
+    }
+
+    throw new AppError(ErrorCode.VALIDATION_ERROR, "SAML 2.0 assertion or OIDC authorization token required", 401);
+  }
+}
+
